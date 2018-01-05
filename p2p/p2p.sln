@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2003
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "p2p", "p2p.vcxproj", "{6EB08C35-B7F8-4C38-986E-677A6DF61A35}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6EB08C35-B7F8-4C38-986E-677A6DF61A35}.Debug|x64.ActiveCfg = Debug|x64
+		{6EB08C35-B7F8-4C38-986E-677A6DF61A35}.Debug|x64.Build.0 = Debug|x64
+		{6EB08C35-B7F8-4C38-986E-677A6DF61A35}.Debug|x86.ActiveCfg = Debug|Win32
+		{6EB08C35-B7F8-4C38-986E-677A6DF61A35}.Debug|x86.Build.0 = Debug|Win32
+		{6EB08C35-B7F8-4C38-986E-677A6DF61A35}.Release|x64.ActiveCfg = Release|x64
+		{6EB08C35-B7F8-4C38-986E-677A6DF61A35}.Release|x64.Build.0 = Release|x64
+		{6EB08C35-B7F8-4C38-986E-677A6DF61A35}.Release|x86.ActiveCfg = Release|Win32
+		{6EB08C35-B7F8-4C38-986E-677A6DF61A35}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4BFCEC7B-1874-4423-B7B4-96017ECA623F}
+	EndGlobalSection
+EndGlobal
