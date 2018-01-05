@@ -38,6 +38,11 @@ void Service::Start(ushort port)
 	_local = new Node(addr);
 
 	cout << "Running service on localhost:" << ntohs(addr.sin_port) << endl;
+
+	// Start the service thread
+	_exitFlag.store(false);
+	std::thread t(&Service::run, this);
+	_thread = move(t);
 }
 
 void Service::Stop()
@@ -49,8 +54,20 @@ void Service::Stop()
 		return;
 	}
 
+	// Stop the worker thread
+	_exitFlag.store(true);
+	_thread.join();
+
 	// Cleanup
 	_socket.Close();
 	delete _local;
 	_local = nullptr;
+}
+
+void Service::run()
+{
+	while (!_exitFlag.load())
+	{
+		std::this_thread::sleep_for(1ms);
+	}
 }

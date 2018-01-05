@@ -17,6 +17,8 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <thread>
+#include <atomic>
 
 typedef unsigned char byte;
 typedef unsigned short ushort;

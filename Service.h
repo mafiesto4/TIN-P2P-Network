@@ -15,6 +15,8 @@ private:
 
 	Node* _local = nullptr;
 	Socket _socket;
+	std::thread _thread;
+	std::atomic<bool> _exitFlag;
 
 public:
 
@@ -37,4 +39,8 @@ public:
 
 	// Stops the running service
 	void Stop();
+
+private:
+
+	void run();
 };
