@@ -55,6 +55,7 @@ void Service::Start(const char* name, ushort port)
 
 	// Create a local node
 	_local = new Node(addr, name);
+	_nodes.push_back(_local);
 
 	cout << "Running service on localhost:" << ntohs(addr.sin_port) << endl;
 	cout << "Name: " << _local->GetName() << endl;
@@ -78,10 +79,22 @@ void Service::Stop()
 	_exitFlag.store(true);
 	_thread.join();
 
-	// Cleanup
+	// Close network connections
 	_socket.Close();
-	delete _local;
+
+	// Cleanup
+	for (auto& _node : _nodes)
+		delete _node;
+	_nodes.clear();
 	_local = nullptr;
+}
+
+void Service::GetNodes(std::vector<Node*>* output)
+{
+	assert(output);
+
+	scope_lock lock(_nodesLocker);
+	*output = _nodes;
 }
 
 void Service::run()

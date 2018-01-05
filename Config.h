@@ -21,11 +21,15 @@
 #include <assert.h>
 #include <thread>
 #include <atomic>
+#include <vector>
+#include <mutex>
 
 typedef unsigned char byte;
 typedef unsigned short ushort;
 typedef unsigned int uint;
 typedef unsigned long ulong;
+
+typedef std::lock_guard<std::mutex> scope_lock;
 
 #undef min
 #undef max

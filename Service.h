@@ -14,10 +14,14 @@ public:
 private:
 
 	Node* _local = nullptr;
+	std::vector<Node*> _nodes;
+	std::mutex _nodesLocker;
+
 	Socket _socket;
+
 	std::thread _thread;
 	std::atomic<bool> _exitFlag;
-
+	
 public:
 
 	// Gets the local server node
@@ -39,6 +43,11 @@ public:
 
 	// Stops the running service
 	void Stop();
+
+public:
+
+	// Gets the collection of nodes in the network
+	void GetNodes(std::vector<Node*>* output);
 
 private:
 
