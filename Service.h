@@ -17,7 +17,9 @@ private:
 	std::vector<Node*> _nodes;
 	std::mutex _nodesLocker;
 
+	ushort _port;
 	Socket _socket;
+	Socket _broadcastingSocket;
 
 	std::thread _thread;
 	std::atomic<bool> _exitFlag;
@@ -39,7 +41,7 @@ public:
 public:
 
 	// Starts the service at the given port (uses the local address)
-	void Start(const char* name = nullptr, ushort port = 0);
+	void Start(ushort port = 0, const char* name = nullptr);
 
 	// Stops the running service
 	void Stop();

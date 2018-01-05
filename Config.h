@@ -35,3 +35,5 @@ typedef std::lock_guard<std::mutex> scope_lock;
 #undef max
 
 #define MAX_MSG_NAME_LENGTH 254
+
+#define DEFAULT_MSG_PORT 2600
