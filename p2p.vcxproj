@@ -153,6 +153,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Config.h" />
+    <ClInclude Include="Messages.h" />
     <ClInclude Include="Node.h" />
     <ClInclude Include="Service.h" />
     <ClInclude Include="Socket.h" />

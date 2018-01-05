@@ -24,3 +24,5 @@ typedef unsigned char byte;
 typedef unsigned short ushort;
 typedef unsigned int uint;
 typedef unsigned long ulong;
+
+#define MAX_MSG_NAME_LENGTH 254
