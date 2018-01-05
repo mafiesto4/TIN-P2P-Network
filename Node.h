@@ -30,6 +30,12 @@ public:
 		return Name;
 	}
 
+	// Gets the node address
+	sockaddr_in GetAddress() const
+	{
+		return _address;
+	}
+
 	// Returns true if this node is a local node
 	bool IsLocal() const;
 };

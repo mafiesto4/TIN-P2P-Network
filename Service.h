@@ -51,6 +51,9 @@ public:
 	// Gets the collection of nodes in the network
 	void GetNodes(std::vector<Node*>* output);
 
+	// Tries to find node by the given address, returns null if not found
+	Node* GetNode(const sockaddr_in& addr);
+
 private:
 
 	void run();

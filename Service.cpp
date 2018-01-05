@@ -103,6 +103,20 @@ void Service::GetNodes(std::vector<Node*>* output)
 	*output = _nodes;
 }
 
+Node* Service::GetNode(const sockaddr_in& addr)
+{
+	scope_lock lock(_nodesLocker);
+
+	for(auto& node : _nodes)
+	{
+		sockaddr_in nodeAddr = node->GetAddress();
+		if (memcmp(&addr, &nodeAddr, sizeof(sockaddr_in)) == 0)
+			return node;
+	}
+
+	return nullptr;
+}
+
 bool GetLocalAddress(in_addr* result)
 {
 	char szBuffer[1024];
@@ -128,7 +142,7 @@ void Service::run()
 		NetworkChangeMsg msg;
 		msg.Type = MSG_TYPE_NETOWRK_CHANGE;
 		msg.IsNew = 1;
-		msg.NameLength = strlen(_local->GetName());
+		msg.NameLength = (byte)strlen(_local->GetName());
 		memcpy(msg.Name, _local->GetName(), msg.NameLength + 1);
 
 		if(_broadcastingSocket.Broadcast(_port, msg))
@@ -177,7 +191,30 @@ void Service::run()
 				case MSG_TYPE_NETOWRK_CHANGE:
 				{
 					NetworkChangeMsg* msg = (NetworkChangeMsg*)buffer;
-					cout << "network change: " << msg->Name << endl;
+
+					cout << "Network change: " << msg->Name << endl;
+
+					scope_lock lock(_nodesLocker);
+					if (msg->IsNew)
+					{
+						// Create new node (only if missing)
+						auto node = GetNode(sender);
+						if (node == nullptr)
+						{
+							_nodes.push_back(new Node(sender, msg->Name));
+						}
+					}
+					else
+					{
+						// Remove node (only if existing)
+						auto node = GetNode(sender);
+						if (node)
+						{
+							_nodes.erase(std::find(_nodes.begin(), _nodes.end(), node));
+							delete node;
+						}
+					}
+
 					break;
 				}
 				default:
@@ -192,7 +229,7 @@ void Service::run()
 		NetworkChangeMsg msg;
 		msg.Type = MSG_TYPE_NETOWRK_CHANGE;
 		msg.IsNew = 0;
-		msg.NameLength = strlen(_local->GetName());
+		msg.NameLength = (byte)strlen(_local->GetName());
 		memcpy(msg.Name, _local->GetName(), msg.NameLength + 1);
 
 		if (_broadcastingSocket.Broadcast(_port, msg))
