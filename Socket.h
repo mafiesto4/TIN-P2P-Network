@@ -41,12 +41,16 @@ public:
 	bool GetAddress(sockaddr_in* result) const
 	{
 		int size = sizeof(sockaddr_in);
-		return getsockname(_descriptor, (sockaddr*)result, &size) == -1;
+		return getsockname(_descriptor, (struct sockaddr*)result, &size) == -1;
 	}
 
 	bool Bind(ushort port)
 	{
-		return Bind("0.0.0.0", port);
+		sockaddr_in client;
+		client.sin_family = AF_INET;
+		client.sin_port = htons(port);
+		client.sin_addr.s_addr = INADDR_ANY;
+		return bind(_descriptor, reinterpret_cast<sockaddr*>(&client), sizeof(client)) == -1;
 	}
 
 	bool Bind(const std::string& address, ushort port)
@@ -79,6 +83,85 @@ public:
 		}
 #endif
 		return connect(_descriptor, reinterpret_cast<sockaddr*>(&server), sizeof(server)) == -1;
+	}
+
+	template<typename T>
+	bool Broadcast(ushort port, const T& data)
+	{
+		return Broadcast(port, (const char*)&data, sizeof(T));
+	}
+
+	bool Broadcast(ushort port, const char* data, int length)
+	{
+		int val = 1;
+		if (setsockopt(_descriptor, SOL_SOCKET, SO_BROADCAST, (const char*)&val, sizeof(val)) == -1)
+			return true;
+		if (setsockopt(_descriptor, SOL_SOCKET, SO_REUSEADDR, (const char*)&val, sizeof(val)) == -1)
+			return true;
+
+		sockaddr_in addr;
+		addr.sin_family = AF_INET;
+		addr.sin_addr.s_addr = inet_addr("192.168.0.255");
+		//addr.sin_addr.s_addr = INADDR_BROADCAST;
+		addr.sin_port = htons(port);
+
+		const int numBytes = sendto(_descriptor, data, length, 0, (struct sockaddr*)&addr, sizeof(addr));
+		return numBytes != length;
+	}
+	
+	// Wait for sockets to be ready (any has data to receive)
+	static bool Select(Socket** sockets, int count, struct timeval* timeout, Socket** readySockets)
+	{
+		int sockfd = -1;
+		fd_set set;
+		FD_ZERO(&set);
+		for (int i = 0; i < count; i++)
+		{
+			sockfd = sockets[i]->_descriptor;
+			FD_SET(sockfd, &set);
+		}
+
+		int n = select(sockfd + 1, &set, NULL, NULL, timeout);
+		if(n == -1)
+			return true;
+
+		for (int i = 0; i < count; i++)
+		{
+			sockfd = sockets[i]->_descriptor;
+			Socket* val = nullptr;
+			if (FD_ISSET(sockfd, &set))
+				val = sockets[i];
+			readySockets[i] = val;
+		}
+
+		return false;
+	}
+
+	// For for single socket to be ready (has data to receive)
+	static bool Select(Socket& socket, struct timeval* timeout, bool* isReady)
+	{
+		fd_set set;
+		FD_ZERO(&set);
+		int sockfd = socket._descriptor;
+		FD_SET(sockfd, &set);
+
+		int n = select(sockfd + 1, &set, NULL, NULL, timeout);
+		if (n == -1)
+			return true;
+
+		if (isReady)
+		{
+			sockfd = socket._descriptor;
+			*isReady = FD_ISSET(sockfd, &set);
+		}
+
+		return false;
+	}
+
+	int Receive(char* data, int length, sockaddr_in* sender)
+	{
+		int senderSize = sizeof(sockaddr_in);
+		return recvfrom(_descriptor, data, length, 0, (struct sockaddr*)sender, &senderSize);
 	}
 
 	void Close()
