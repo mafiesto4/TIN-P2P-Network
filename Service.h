@@ -35,7 +35,7 @@ public:
 public:
 
 	// Starts the service at the given port (uses the local address)
-	void Start(ushort port = 0);
+	void Start(const char* name = nullptr, ushort port = 0);
 
 	// Stops the running service
 	void Stop();

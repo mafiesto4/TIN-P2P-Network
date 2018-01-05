@@ -5,13 +5,32 @@ using namespace std;
 
 Service Service::Instance;
 
-void Service::Start(ushort port)
+void Service::Start(const char* name, ushort port)
 {
 	// Skip if already running
 	if (IsRunning())
 	{
 		cout << "Already running" << endl;
 		return;
+	}
+
+	// Peek default name if none specified
+	std::string nodeName;
+	if (name == nullptr)
+	{
+#if _WIN32
+		char hostname[256];
+		DWORD bufCharCount = 256;
+		GetComputerNameA(hostname, &bufCharCount);
+		nodeName = hostname;
+		nodeName += " (" + std::to_string(GetCurrentProcessId()) + ")";
+#else
+		char hostname[HOST_NAME_MAX];
+		gethostname(hostname, HOST_NAME_MAX);
+		nodeName = hostname;
+		nodeName += " (" + std::to_string(getpid()) + ")";
+#endif
+		name = nodeName.c_str();
 	}
 
 	// Open socket
@@ -35,9 +54,10 @@ void Service::Start(ushort port)
 	}
 
 	// Create a local node
-	_local = new Node(addr);
+	_local = new Node(addr, name);
 
 	cout << "Running service on localhost:" << ntohs(addr.sin_port) << endl;
+	cout << "Name: " << _local->GetName() << endl;
 
 	// Start the service thread
 	_exitFlag.store(false);
@@ -66,6 +86,8 @@ void Service::Stop()
 
 void Service::run()
 {
+	assert(!_socket.IsClosed());
+
 	while (!_exitFlag.load())
 	{
 		std::this_thread::sleep_for(1ms);

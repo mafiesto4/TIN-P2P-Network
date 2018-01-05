@@ -12,6 +12,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <unistd.h>
+#include <limits.h>
 
 #endif
 
@@ -24,5 +26,8 @@ typedef unsigned char byte;
 typedef unsigned short ushort;
 typedef unsigned int uint;
 typedef unsigned long ulong;
+
+#undef min
+#undef max
 
 #define MAX_MSG_NAME_LENGTH 254
