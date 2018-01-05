@@ -2,6 +2,7 @@
 
 #if _WIN32
 
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <WinSock2.h>
 #pragma comment(lib, "ws2_32.lib")
 
@@ -15,6 +16,9 @@
 #endif
 
 #include <stdio.h>
+#include <assert.h>
 
+typedef unsigned char byte;
 typedef unsigned short ushort;
 typedef unsigned int uint;
+typedef unsigned long ulong;

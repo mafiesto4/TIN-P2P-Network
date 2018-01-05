@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Node.h"
+#include "Socket.h"
 
 // The main peer-to-peer server controller. Exposes various functionalities and manages the network connections and structure.
 class Service
@@ -13,7 +14,7 @@ public:
 private:
 
 	Node* _local = nullptr;
-	int _socket = -1;
+	Socket _socket;
 
 public:
 
