@@ -15,7 +15,7 @@ private:
 
 	Node* _local = nullptr;
 	std::vector<Node*> _nodes;
-	std::mutex _nodesLocker;
+	std::recursive_mutex _nodesLocker;
 
 	ushort _port;
 	Socket _socket;

@@ -29,7 +29,7 @@ typedef unsigned short ushort;
 typedef unsigned int uint;
 typedef unsigned long ulong;
 
-typedef std::lock_guard<std::mutex> scope_lock;
+typedef std::lock_guard<std::recursive_mutex> scope_lock;
 
 #undef min
 #undef max
