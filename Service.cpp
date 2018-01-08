@@ -183,16 +183,17 @@ void Service::run()
 				// Skip messages from itself
 				if (memcmp(&localAddr, &sender.sin_addr, sizeof(sender.sin_addr)) == 0)
 					continue;
-				
+
 				// Override sender port address
-				sender.sin_port = htons(((NetworkMsg*)buffer)->Port);
+				NetworkMsg* msgBase = (NetworkMsg*)buffer;
+				sender.sin_port = htons(msgBase->Port);
 
 				// Handle message
-				switch (((NetworkMsg*)buffer)->Type)
+				switch (msgBase->Type)
 				{
 				case MSG_TYPE_NETOWRK_CHANGE:
 				{
-					NetworkChangeMsg* msg = (NetworkChangeMsg*)buffer;
+					NetworkChangeMsg* msg = (NetworkChangeMsg*)msgBase;
 
 					scope_lock lock(_nodesLocker);
 					if (msg->IsNew)
@@ -210,7 +211,7 @@ void Service::run()
 								cout << "Failed to send message to the new node" << endl;
 							}
 
-							cout << "Network change: " << node << endl;
+							cout << "Node connected: " << node << endl;
 						}
 					}
 					else
@@ -219,6 +220,8 @@ void Service::run()
 						auto node = GetNode(sender);
 						if (node)
 						{
+							cout << "Node disconnected: " << node << endl;
+
 							_nodes.erase(std::find(_nodes.begin(), _nodes.end(), node));
 							delete node;
 						}
@@ -227,7 +230,7 @@ void Service::run()
 					break;
 				}
 				default:
-					cout << "Unknown network message type" << endl;
+					cout << "Unknown network message type (" << msgBase->Type << ")" << endl;
 				}
 			}
 		}
