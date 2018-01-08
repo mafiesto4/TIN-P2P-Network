@@ -13,7 +13,7 @@ bool ParseCommandArg0(const string& str, const char* cmd)
 bool ParseCommandArg1(const string& str, const char* cmd, string& arg0)
 {
 	arg0 = "";
-	int cmdLen = strlen(cmd);
+	size_t cmdLen = strlen(cmd);
 	if (str.size() > cmdLen && memcmp(str.c_str(), cmd, cmdLen) == 0)
 	{
 		const char* ptr = str.c_str() + cmdLen + 1;
