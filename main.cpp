@@ -74,7 +74,7 @@ int main()
 				Service::Instance.GetNodes(&nodes);
 				cout << "P2P network nodes:" << endl;
 				for (auto& node : nodes)
-					cout << node->GetName() << " - " << node->GetAddressName() << ":" << ntohs(node->GetAddress().sin_port) << endl;
+					cout << node << endl;
 			}
 			else
 			{

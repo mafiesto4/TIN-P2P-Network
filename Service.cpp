@@ -137,18 +137,17 @@ void Service::run()
 {
 	assert(!_socket.IsClosed());
 
-	// Broadcast about new node in the network
-	{
-		NetworkChangeMsg msg;
-		msg.Type = MSG_TYPE_NETOWRK_CHANGE;
-		msg.IsNew = 1;
-		msg.NameLength = (byte)strlen(_local->GetName());
-		memcpy(msg.Name, _local->GetName(), msg.NameLength + 1);
+	NetworkChangeMsg thisChangeMsg;
+	thisChangeMsg.Type = MSG_TYPE_NETOWRK_CHANGE;
+	thisChangeMsg.IsNew = 1;
+	thisChangeMsg.Port = _port;
+	thisChangeMsg.NameLength = (byte)strlen(_local->GetName());
+	memcpy(thisChangeMsg.Name, _local->GetName(), thisChangeMsg.NameLength + 1);
 
-		if(_broadcastingSocket.Broadcast(_port, msg))
-		{
-			cout << "Failed to send an initial broadcast message" << endl;
-		}
+	// Broadcast about new node in the network
+	if (_broadcastingSocket.Broadcast(_port, thisChangeMsg))
+	{
+		cout << "Failed to send an initial broadcast message" << endl;
 	}
 
 	// Get local address
@@ -184,6 +183,9 @@ void Service::run()
 				// Skip messages from itself
 				if (memcmp(&localAddr, &sender.sin_addr, sizeof(sender.sin_addr)) == 0)
 					continue;
+				
+				// Override sender port address
+				sender.sin_port = htons(((NetworkMsg*)buffer)->Port);
 
 				// Handle message
 				switch (((NetworkMsg*)buffer)->Type)
@@ -192,8 +194,6 @@ void Service::run()
 				{
 					NetworkChangeMsg* msg = (NetworkChangeMsg*)buffer;
 
-					cout << "Network change: " << msg->Name << endl;
-
 					scope_lock lock(_nodesLocker);
 					if (msg->IsNew)
 					{
@@ -201,7 +201,16 @@ void Service::run()
 						auto node = GetNode(sender);
 						if (node == nullptr)
 						{
-							_nodes.push_back(new Node(sender, msg->Name));
+							node = new Node(sender, msg->Name);
+							_nodes.push_back(node);
+
+							// Send back message
+							if (_socket.Send(sender, msg))
+							{
+								cout << "Failed to send message to the new node" << endl;
+							}
+
+							cout << "Network change: " << node << endl;
 						}
 					}
 					else
@@ -225,16 +234,9 @@ void Service::run()
 	}
 
 	// Broadcast about node leaving the network
+	thisChangeMsg.IsNew = 0;
+	if (_broadcastingSocket.Broadcast(_port, thisChangeMsg))
 	{
-		NetworkChangeMsg msg;
-		msg.Type = MSG_TYPE_NETOWRK_CHANGE;
-		msg.IsNew = 0;
-		msg.NameLength = (byte)strlen(_local->GetName());
-		memcpy(msg.Name, _local->GetName(), msg.NameLength + 1);
-
-		if (_broadcastingSocket.Broadcast(_port, msg))
-		{
-			cout << "Failed to send an ending broadcast message" << endl;
-		}
+		cout << "Failed to send an ending broadcast message" << endl;
 	}
 }

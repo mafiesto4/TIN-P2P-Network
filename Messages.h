@@ -6,6 +6,7 @@
 struct NetworkMsg
 {
 	byte Type;
+	ushort Port;
 };
 
 // Maximum size (in bytes) for a single network message

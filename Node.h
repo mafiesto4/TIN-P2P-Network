@@ -3,7 +3,7 @@
 #include "Config.h"
 #include <algorithm>
 
-// Represents a single pee-to-2peer client node connected to the network
+// Represents a single pee-to-peer client node connected to the network
 class Node
 {
 private:
@@ -44,3 +44,5 @@ public:
 	// Returns true if this node is a local node
 	bool IsLocal() const;
 };
+
+std::ostream& operator<<(std::ostream& stream, Node* node);

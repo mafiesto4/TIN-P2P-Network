@@ -108,7 +108,19 @@ public:
 		const int numBytes = sendto(_descriptor, data, length, 0, (struct sockaddr*)&addr, sizeof(addr));
 		return numBytes != length;
 	}
-	
+
+	template<typename T>
+	bool Send(const sockaddr_in& addr, const T& data)
+	{
+		return Send(addr, (const char*)&data, sizeof(T));
+	}
+
+	bool Send(const sockaddr_in& addr, const char* data, int length)
+	{
+		const int numBytes = sendto(_descriptor, data, length, 0, (struct sockaddr*)&addr, sizeof(addr));
+		return numBytes != length;
+	}
+
 	// Wait for sockets to be ready (any has data to receive)
 	static bool Select(Socket** sockets, int count, struct timeval* timeout, Socket** readySockets)
 	{
