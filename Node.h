@@ -36,6 +36,11 @@ public:
 		return _address;
 	}
 
+	char* GetAddressName() const
+	{
+		return inet_ntoa(_address.sin_addr);
+	}
+
 	// Returns true if this node is a local node
 	bool IsLocal() const;
 };
