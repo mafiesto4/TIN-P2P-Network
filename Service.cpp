@@ -152,11 +152,11 @@ void Service::run()
 
 	// Get local address
 	in_addr localAddr;
-	if(GetLocalAddress(&localAddr))
+	if (GetLocalAddress(&localAddr))
 	{
 		cout << "Failed to get local address" << endl;
 	}
-	
+
 	sockaddr_in sender;
 	bool isReady;
 	struct timeval time_500ms = { 0, 500 * 1000 };
@@ -241,5 +241,19 @@ void Service::run()
 	if (_broadcastingSocket.Broadcast(_port, thisChangeMsg))
 	{
 		cout << "Failed to send an ending broadcast message" << endl;
+	}
+
+	// Also send ending message to the connected nodes that use different service port
+	{
+		scope_lock lock(_nodesLocker);
+
+		const u_short port = htons(_port);
+		for (auto& node : _nodes)
+		{
+			if (node->GetAddress().sin_port != port)
+			{
+				_socket.Send(sender, thisChangeMsg);
+			}
+		}
 	}
 }
