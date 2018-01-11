@@ -30,6 +30,18 @@ typedef unsigned short ushort;
 typedef unsigned int uint;
 typedef unsigned long ulong;
 
+// Computed file hash data storage
+struct Hash
+{
+	char Data[16];
+};
+
+// Compares two file hashes and returns true if both are equal
+inline bool operator==(const Hash& a, const Hash& b)
+{
+	return memcmp(a.Data, b.Data, sizeof(Hash)) == 0;
+}
+
 typedef std::lock_guard<std::recursive_mutex> scope_lock;
 
 #undef min
@@ -37,5 +49,6 @@ typedef std::lock_guard<std::recursive_mutex> scope_lock;
 
 #define MAX_PORT_NUM 65500
 #define MAX_MSG_NAME_LENGTH 254
+#define MAX_ACTIVE_TRANSFERS_COUNT 12
 
 #define DEFAULT_MSG_PORT 2600

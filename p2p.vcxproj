@@ -155,12 +155,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="FileTransfer.cpp" />
     <ClCompile Include="Node.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Service.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Config.h" />
+    <ClInclude Include="FileTransfer.h" />
     <ClInclude Include="Messages.h" />
     <ClInclude Include="Node.h" />
     <ClInclude Include="Service.h" />
