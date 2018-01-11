@@ -2,6 +2,8 @@
 
 #include "Node.h"
 #include "Socket.h"
+#include "FileTransfer.h"
+#include <queue>
 
 // The main peer-to-peer server controller. Exposes various functionalities and manages the network connections and structure.
 class Service
@@ -27,6 +29,11 @@ private:
 	
 	bool _shouldPing = false;
 	sockaddr_in _toPing;
+
+	std::queue<InputTransferData> _inputData;
+	std::queue<OutputTransferData> _outputData;
+	std::vector<FileTransfer*> _activeTransfers;
+	std::recursive_mutex _transferLocker;
 
 public:
 
@@ -61,7 +68,15 @@ public:
 	// Tries to find node by the given address, returns null if not found
 	Node* GetNode(const sockaddr_in& addr);
 
+	// Testing function, remove it later
+	void SendTestTransferToItself();
+
 private:
 
 	void run();
+	void runTransfer(FileTransfer* transfer);
+	void SendFile(const OutputTransferData& data);
+	void GetFile(const InputTransferData& data);
+	void OnTransferStart(FileTransfer* transfer);
+	void OnTransferEnd(FileTransfer* transfer);
 };

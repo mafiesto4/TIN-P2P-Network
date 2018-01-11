@@ -131,6 +131,10 @@ void Service::Start(ushort port, const char* name)
 	_nodes.push_back(_local);
 	_port = ntohs(addr.sin_port);
 
+	// Cleanup
+	_inputData = queue<InputTransferData>();
+	_outputData = queue<OutputTransferData>();
+
 	cout << "Running service on localhost:" << _port << endl;
 	cout << "Name: " << _local->GetName() << endl;
 
@@ -213,6 +217,17 @@ Node* Service::GetNode(const sockaddr_in& addr)
 	}
 
 	return nullptr;
+}
+
+void Service::SendTestTransferToItself()
+{
+	InputTransferData data = {};
+	data.TargetAddress.sin_family = AF_INET;
+	data.TargetAddress.sin_addr = _localAddress;
+	data.TargetAddress.sin_port = htons(_port);
+	data.FileSize = 11;
+	data.FileName = "newfile.txt";
+	GetFile(data);
 }
 
 void Service::run()
@@ -341,4 +356,67 @@ void Service::run()
 			}
 		}
 	}
+}
+
+void Service::runTransfer(FileTransfer* transfer)
+{
+	assert(transfer);
+
+	const bool result = transfer->Perform();
+	if (result)
+	{
+		cout << "Transfer failed" << endl;
+	}
+
+	OnTransferEnd(transfer);
+}
+
+void Service::SendFile(const OutputTransferData& data)
+{
+	scope_lock lock(_transferLocker);
+
+	// Check if can start new transfer
+	if (_activeTransfers.size() < MAX_ACTIVE_TRANSFERS_COUNT)
+	{
+		// Kick off new file data transfer
+		OnTransferStart(new OutputFileTransfer(data));
+		return;
+	}
+
+	// Store data to handle it later
+	_outputData.emplace(data);
+}
+
+void Service::GetFile(const InputTransferData& data)
+{
+	scope_lock lock(_transferLocker);
+
+	// Check if can start new transfer
+	if (_activeTransfers.size() < MAX_ACTIVE_TRANSFERS_COUNT)
+	{
+		// Kick off new file data transfer
+		OnTransferStart(new InputFileTransfer(data));
+		return;
+	}
+
+	// Store data to handle it later
+	_inputData.emplace(data);
+}
+
+void Service::OnTransferStart(FileTransfer* transfer)
+{
+	_activeTransfers.push_back(transfer);
+	// TODO: start thread
+}
+
+void Service::OnTransferEnd(FileTransfer* transfer)
+{
+	scope_lock lock(_transferLocker);
+
+	assert(transfer);
+	const auto i = std::find(_activeTransfers.begin(), _activeTransfers.end(), transfer);
+	assert(i != _activeTransfers.end());
+
+	_activeTransfers.erase(i);
+	delete transfer;
 }

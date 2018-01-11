@@ -122,6 +122,10 @@ int main()
 			// TODO: implement listing files (use arg0 is not empty to get files from the choosen host)
 			cout << "Not implemented" << endl;
 		}
+		else if(ParseCommandArg0(input, "test"))
+		{
+			Service::Instance.SendTestTransferToItself();
+		}
 		else if (ParseCommandArg0(input, "nodes"))
 		{
 			if (Service::Instance.IsRunning())
