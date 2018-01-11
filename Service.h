@@ -3,6 +3,7 @@
 #include "Node.h"
 #include "Socket.h"
 #include "FileTransfer.h"
+#include "File.h"
 #include <queue>
 
 // The main peer-to-peer server controller. Exposes various functionalities and manages the network connections and structure.
@@ -34,6 +35,9 @@ private:
 	std::queue<OutputTransferData> _outputData;
 	std::vector<FileTransfer*> _activeTransfers;
 	std::recursive_mutex _transferLocker;
+
+	std::vector<File*> _files;
+	std::recursive_mutex _filesLocker;
 
 public:
 
@@ -67,6 +71,11 @@ public:
 
 	// Tries to find node by the given address, returns null if not found
 	Node* GetNode(const sockaddr_in& addr);
+
+	// Tries to find local file by the given file hash, returns null if not found
+	File* GetFile(const Hash& hash);
+
+public:
 
 	// Testing function, remove it later
 	void SendTestTransferToItself();

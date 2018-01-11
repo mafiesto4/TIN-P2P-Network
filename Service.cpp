@@ -211,9 +211,21 @@ Node* Service::GetNode(const sockaddr_in& addr)
 
 	for(auto& node : _nodes)
 	{
-		sockaddr_in nodeAddr = node->GetAddress();
-		if (memcmp(&addr, &nodeAddr, sizeof(sockaddr_in)) == 0)
+		if (node->GetAddress() == addr)
 			return node;
+	}
+
+	return nullptr;
+}
+
+File* Service::GetFile(const Hash& hash)
+{
+	scope_lock lock(_filesLocker);
+
+	for (auto& file : _files)
+	{
+		if (file->Hash == hash)
+			return file;
 	}
 
 	return nullptr;
@@ -265,6 +277,8 @@ void Service::run()
 			}
 			_shouldPing = false;
 		}
+
+		// TODO: handling in/out transfers if no active threads to use
 
 		// Wait for a message (non blocking)
 		if (Socket::Select(_socket, &time_500ms, &isReady))

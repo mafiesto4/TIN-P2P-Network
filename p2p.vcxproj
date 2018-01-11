@@ -162,6 +162,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Config.h" />
+    <ClInclude Include="File.h" />
     <ClInclude Include="FileTransfer.h" />
     <ClInclude Include="Messages.h" />
     <ClInclude Include="Node.h" />

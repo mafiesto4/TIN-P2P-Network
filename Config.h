@@ -42,6 +42,12 @@ inline bool operator==(const Hash& a, const Hash& b)
 	return memcmp(a.Data, b.Data, sizeof(Hash)) == 0;
 }
 
+// Compares two file addresses and returns true if both are equal
+inline bool operator==(const sockaddr_in& a, const sockaddr_in& b)
+{
+	return memcmp(&a, &b, sizeof(sockaddr_in)) == 0;
+}
+
 typedef std::lock_guard<std::recursive_mutex> scope_lock;
 
 #undef min
