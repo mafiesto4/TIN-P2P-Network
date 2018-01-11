@@ -291,7 +291,7 @@ void Service::run()
 							_nodes.push_back(node);
 
 							// Send back message
-							if (_socket.Send(sender, msg))
+							if (_socket.Send(sender, thisChangeMsg))
 							{
 								cout << "Failed to send message to the new node" << endl;
 							}
