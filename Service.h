@@ -18,12 +18,16 @@ private:
 	std::recursive_mutex _nodesLocker;
 
 	ushort _port;
+	in_addr _localAddress;
 	Socket _socket;
 	Socket _broadcastingSocket;
 
 	std::thread _thread;
 	std::atomic<bool> _exitFlag;
 	
+	bool _shouldPing = false;
+	sockaddr_in _toPing;
+
 public:
 
 	// Gets the local server node
@@ -45,6 +49,9 @@ public:
 
 	// Stops the running service
 	void Stop();
+
+	// Allows to ping given address (with or without a port) to detect running service
+	void Ping(const std::string& address);
 
 public:
 

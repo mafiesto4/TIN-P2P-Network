@@ -4,6 +4,7 @@
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <WinSock2.h>
+#include <Ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 
 #else
@@ -34,6 +35,7 @@ typedef std::lock_guard<std::recursive_mutex> scope_lock;
 #undef min
 #undef max
 
+#define MAX_PORT_NUM 65500
 #define MAX_MSG_NAME_LENGTH 254
 
 #define DEFAULT_MSG_PORT 2600

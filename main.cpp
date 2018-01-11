@@ -76,6 +76,10 @@ int main()
 		{
 			Service::Instance.Stop();
 		}
+		else if(ParseCommandArg1(input, "ping", arg0))
+		{
+			Service::Instance.Ping(arg0);
+		}
 		else if (ParseCommandArg0(input, "nodes"))
 		{
 			if (Service::Instance.IsRunning())

@@ -6,6 +6,71 @@ using namespace std;
 
 Service Service::Instance;
 
+bool ParseAddress(const std::string& address, sockaddr_in& addr)
+{
+	// Check single port case
+	{
+		char *endptr;
+		const long val = strtol(address.c_str(), &endptr, 10);
+		if (*endptr == '\0' && val > 0 && val <= MAX_PORT_NUM)
+		{
+			addr.sin_port = htons(val);
+			return false;
+		}
+	}
+
+	string pAddr;
+	string pPort;
+
+	// Try to get address and port values
+	const string::size_type split = address.find(':');
+	if (split == string::npos)
+	{
+		pAddr = address;
+		pPort = "";
+	}
+	else
+	{
+		pAddr = address.substr(0, split);
+		pPort = address.substr(split + 1);
+	}
+
+	// Try to parse address
+	if (!pAddr.empty() && inet_pton(AF_INET, pAddr.c_str(), &addr.sin_addr) != 1)
+	{
+		return true;
+	}
+
+	if (!pPort.empty())
+	{
+		// Try parse port
+		char *endptr;
+		const long val = strtol(pPort.c_str(), &endptr, 10);
+		if (*endptr != '\0' || val <= 0 || val > MAX_PORT_NUM)
+			return true;
+
+		addr.sin_port = htons(val);
+	}
+
+	return false;
+}
+
+bool GetLocalAddress(in_addr* result)
+{
+	char szBuffer[1024];
+
+	if (gethostname(szBuffer, sizeof(szBuffer)) == SOCKET_ERROR)
+		return true;
+
+	struct hostent* host = gethostbyname(szBuffer);
+	if (host == NULL)
+		return true;
+
+	*result = *((struct in_addr*)(host->h_addr));
+
+	return false;
+}
+
 void Service::Start(ushort port, const char* name)
 {
 	// Skip if already running
@@ -32,6 +97,13 @@ void Service::Start(ushort port, const char* name)
 		nodeName += " (" + std::to_string(getpid()) + ")";
 #endif
 		name = nodeName.c_str();
+	}
+
+	// Get local address
+	if (GetLocalAddress(&_localAddress))
+	{
+		cout << "Failed to get local address" << endl;
+		return;
 	}
 
 	// Open sockets
@@ -95,6 +167,32 @@ void Service::Stop()
 	cout << "Stopped" << endl;
 }
 
+void Service::Ping(const std::string& address)
+{
+	// Skip if not runnweqning
+	if (!IsRunning())
+	{
+		cout << "Not running" << endl;
+		return;
+	}
+	if (_shouldPing)
+		return;
+
+	// Parse address
+	sockaddr_in addr;
+	addr.sin_family = AF_INET;
+	addr.sin_addr = _localAddress;
+	addr.sin_port = htons(0);
+	if(ParseAddress(address, addr))
+	{
+		cout << "Invalid address" << endl;
+		return;
+	}
+
+	_toPing = addr;
+	_shouldPing = true;
+}
+
 void Service::GetNodes(std::vector<Node*>* output)
 {
 	assert(output);
@@ -117,22 +215,6 @@ Node* Service::GetNode(const sockaddr_in& addr)
 	return nullptr;
 }
 
-bool GetLocalAddress(in_addr* result)
-{
-	char szBuffer[1024];
-
-	if (gethostname(szBuffer, sizeof(szBuffer)) == SOCKET_ERROR)
-		return true;
-
-	struct hostent* host = gethostbyname(szBuffer);
-	if (host == NULL)
-		return true;
-
-	*result = *((struct in_addr*)(host->h_addr));
-
-	return false;
-}
-
 void Service::run()
 {
 	assert(!_socket.IsClosed());
@@ -150,13 +232,6 @@ void Service::run()
 		cout << "Failed to send an initial broadcast message" << endl;
 	}
 
-	// Get local address
-	in_addr localAddr;
-	if (GetLocalAddress(&localAddr))
-	{
-		cout << "Failed to get local address" << endl;
-	}
-
 	sockaddr_in sender;
 	bool isReady;
 	struct timeval time_500ms = { 0, 500 * 1000 };
@@ -165,6 +240,16 @@ void Service::run()
 	while (!_exitFlag.load())
 	{
 		std::this_thread::sleep_for(1ms);
+
+		// Ping if need
+		if (_shouldPing)
+		{
+			if (_socket.Send(_toPing, thisChangeMsg))
+			{
+				cout << "Failed to send ping message" << endl;
+			}
+			_shouldPing = false;
+		}
 
 		// Wait for a message (non blocking)
 		if (Socket::Select(_socket, &time_500ms, &isReady))
@@ -180,13 +265,13 @@ void Service::run()
 			}
 			else if (size >= sizeof(NetworkMsg))
 			{
-				// Skip messages from itself
-				if (memcmp(&localAddr, &sender.sin_addr, sizeof(sender.sin_addr)) == 0)
-					continue;
-
 				// Override sender port address
 				NetworkMsg* msgBase = (NetworkMsg*)buffer;
 				sender.sin_port = htons(msgBase->Port);
+
+				// Skip messages from itself
+				if (memcmp(&_localAddress, &sender.sin_addr, sizeof(sender.sin_addr)) == 0 && msgBase->Port == _port)
+					continue;
 
 				// Handle message
 				switch (msgBase->Type)
