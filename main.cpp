@@ -56,9 +56,19 @@ int main()
 		else if(ParseCommandArg0(input, "start") || ParseCommandArg1(input, "start", arg0))
 		{
 			ushort port = DEFAULT_MSG_PORT;
-			if (arg0.size() > 0)
+			if (!arg0.empty())
 			{
-				port = std::stoi(arg0);
+				char *endptr;
+				const long val = strtol(arg0.c_str(), &endptr, 10);
+				if (*endptr == '\0')
+				{
+					port = val;
+				}
+				else
+				{
+					cout << "Invalid port number" << endl;
+					continue;
+				}
 			}
 			Service::Instance.Start(port);
 		}
