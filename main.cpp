@@ -24,6 +24,27 @@ bool ParseCommandArg1(const string& str, const char* cmd, string& arg0)
 	return false;
 }
 
+bool ParseCommandArg2(const string& str, const char* cmd, string& arg0, string& arg1)
+{
+	arg0 = "";
+	arg1 = "";
+	size_t cmdLen = strlen(cmd);
+	if (str.size() > cmdLen && memcmp(str.c_str(), cmd, cmdLen) == 0)
+	{
+		const char* ptr = str.c_str() + cmdLen + 1;
+		arg0 = ptr;
+		const string::size_type t = arg0.find(' ');
+		if (t != string::npos)
+		{
+			arg1 = arg0.substr(t + 1);
+			arg0 = arg0.substr(0, t);
+			return true;
+		}
+	}
+
+	return false;
+}
+
 int main()
 {
 #if _WIN32
@@ -40,6 +61,7 @@ int main()
 #endif
 
 	string arg0;
+	string arg1;
 
 	while(true)
 	{
@@ -79,6 +101,26 @@ int main()
 		else if(ParseCommandArg1(input, "ping", arg0))
 		{
 			Service::Instance.Ping(arg0);
+		}
+		else if (ParseCommandArg1(input, "add", arg0))
+		{
+			// TODO: implement adding files
+			cout << "Not implemented" << endl;
+		}
+		else if (ParseCommandArg1(input, "remove", arg0))
+		{
+			// TODO: implement removing files
+			cout << "Not implemented" << endl;
+		}
+		else if (ParseCommandArg2(input, "get", arg0, arg1) || ParseCommandArg1(input, "get", arg0))
+		{
+			// TODO: implement getting files
+			cout << "Not implemented" << endl;
+		}
+		else if (ParseCommandArg0(input, "list") || ParseCommandArg1(input, "list", arg0))
+		{
+			// TODO: implement listing files (use arg0 is not empty to get files from the choosen host)
+			cout << "Not implemented" << endl;
 		}
 		else if (ParseCommandArg0(input, "nodes"))
 		{
