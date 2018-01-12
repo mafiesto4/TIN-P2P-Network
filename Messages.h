@@ -14,6 +14,7 @@ struct NetworkMsg
 
 // Message types
 #define MSG_TYPE_NETOWRK_CHANGE 1
+#define MSG_TYPE_TRANSFER_INIT 7
 
 // Message send after network structure changed (host added/removed)
 struct NetworkChangeMsg : NetworkMsg
@@ -23,3 +24,11 @@ struct NetworkChangeMsg : NetworkMsg
 	char Name[MAX_MSG_NAME_LENGTH];
 };
 static_assert(sizeof(NetworkChangeMsg) <= MAX_NETWORK_MSG_SIZE, "Invalid message size");
+
+// Message send on file data transfer initialization (send by the node requesting data)
+struct NetworkTransferInitMsg : NetworkMsg
+{
+	ushort TcpPort;
+	Hash Hash;
+};
+static_assert(sizeof(NetworkTransferInitMsg) <= MAX_NETWORK_MSG_SIZE, "Invalid message size");
