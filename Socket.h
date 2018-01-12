@@ -25,11 +25,11 @@ public:
 
 public:
 
-	bool Open(int type)
+	bool Open(int type, int protocol = 0)
 	{
 		if (!IsClosed())
 			return true;
-		_descriptor = socket(AF_INET, type, 0);
+		_descriptor = socket(AF_INET, type, protocol);
 		return _descriptor == -1;
 	}
 
@@ -85,6 +85,27 @@ public:
 		return connect(_descriptor, reinterpret_cast<sockaddr*>(&server), sizeof(server)) == -1;
 	}
 
+	bool Connect(const sockaddr_in& addrr)
+	{
+		return connect(_descriptor, reinterpret_cast<const sockaddr*>(&addrr), sizeof(addrr)) == -1;
+	}
+
+	int Listen()
+	{
+		return listen(_descriptor, 5);
+	}
+
+	bool Accept(Socket& msgSock)
+	{
+		const int v = accept(_descriptor, (struct sockaddr*)0, (int*)0);
+		if (v == -1)
+			return true;
+
+		msgSock.Close();
+		msgSock._descriptor = v;
+		return false;
+	}
+
 	template<typename T>
 	bool Broadcast(ushort port, const T& data)
 	{
@@ -119,6 +140,32 @@ public:
 	{
 		const int numBytes = sendto(_descriptor, data, length, 0, (struct sockaddr*)&addr, sizeof(addr));
 		return numBytes != length;
+	}
+
+	template<typename T>
+	int Send(const T& data)
+	{
+		return Send((const char*)&data, sizeof(T));
+	}
+
+	int Send(const char* data, int length)
+	{
+		return send(_descriptor, data, length, 0);
+	}
+
+	bool SendData(char* data, int length)
+	{
+		int bytesSend = 0;
+		while (bytesSend < length)
+		{
+			const int result = Send(data + bytesSend, length - bytesSend);
+			if (result < 1)
+				return true;
+
+			bytesSend += result;
+		}
+
+		return false;
 	}
 
 	// Wait for sockets to be ready (any has data to receive)
@@ -164,7 +211,7 @@ public:
 		if (isReady)
 		{
 			sockfd = socket._descriptor;
-			*isReady = FD_ISSET(sockfd, &set);
+			*isReady = FD_ISSET(sockfd, &set) != 0;
 		}
 
 		return false;
@@ -174,6 +221,26 @@ public:
 	{
 		int senderSize = sizeof(sockaddr_in);
 		return recvfrom(_descriptor, data, length, 0, (struct sockaddr*)sender, &senderSize);
+	}
+	
+	int Receive(char* data, int length)
+	{
+		return recv(_descriptor, data, length, 0);
+	}
+
+	bool ReceiveData(char* data, int length)
+	{
+		int bytesRead = 0;
+		while (bytesRead < length)
+		{
+			const int result = Receive(data + bytesRead, length - bytesRead);
+			if (result < 1)
+				return true;
+
+			bytesRead += result;
+		}
+
+		return false;
 	}
 
 	void Close()
