@@ -54,6 +54,12 @@ public:
 		return _local != nullptr;
 	}
 
+	// Gets the service port number
+	ushort GetPort() const
+	{
+		return _port;
+	}
+
 public:
 
 	// Starts the service at the given port (uses the local address)
@@ -76,10 +82,8 @@ public:
 	// Tries to find local file by the given file hash, returns null if not found
 	File* GetFile(const Hash& hash);
 
-public:
-
-	// Testing function, remove it later
-	void SendTestTransferToItself();
+	// Checks if file with given hash is during transfer (input or output)
+	bool IsFileTransfer(const Hash& hash);
 
 private:
 

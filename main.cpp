@@ -84,7 +84,7 @@ int main()
 				const long val = strtol(arg0.c_str(), &endptr, 10);
 				if (*endptr == '\0')
 				{
-					port = val;
+					port = (ushort)val;
 				}
 				else
 				{
@@ -121,10 +121,6 @@ int main()
 		{
 			// TODO: implement listing files (use arg0 is not empty to get files from the choosen host)
 			cout << "Not implemented" << endl;
-		}
-		else if(ParseCommandArg0(input, "test"))
-		{
-			Service::Instance.SendTestTransferToItself();
 		}
 		else if (ParseCommandArg0(input, "nodes"))
 		{

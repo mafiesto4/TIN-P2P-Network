@@ -14,7 +14,7 @@ bool ParseAddress(const std::string& address, sockaddr_in& addr)
 		const long val = strtol(address.c_str(), &endptr, 10);
 		if (*endptr == '\0' && val > 0 && val <= MAX_PORT_NUM)
 		{
-			addr.sin_port = htons(val);
+			addr.sin_port = htons((u_short)val);
 			return false;
 		}
 	}
@@ -49,7 +49,7 @@ bool ParseAddress(const std::string& address, sockaddr_in& addr)
 		if (*endptr != '\0' || val <= 0 || val > MAX_PORT_NUM)
 			return true;
 
-		addr.sin_port = htons(val);
+		addr.sin_port = htons((u_short)val);
 	}
 
 	return false;
@@ -107,7 +107,7 @@ void Service::Start(ushort port, const char* name)
 	}
 
 	// Open sockets
-	if (_socket.Open(SOCK_DGRAM) || _broadcastingSocket.Open(SOCK_DGRAM))
+	if (_socket.Open(SOCK_DGRAM, IPPROTO_UDP) || _broadcastingSocket.Open(SOCK_DGRAM, IPPROTO_UDP))
 	{
 		cout << "Failed to open a socket" << endl;
 		return;
@@ -231,15 +231,17 @@ File* Service::GetFile(const Hash& hash)
 	return nullptr;
 }
 
-void Service::SendTestTransferToItself()
+bool Service::IsFileTransfer(const Hash& hash)
 {
-	InputTransferData data = {};
-	data.TargetAddress.sin_family = AF_INET;
-	data.TargetAddress.sin_addr = _localAddress;
-	data.TargetAddress.sin_port = htons(_port);
-	data.FileSize = 11;
-	data.FileName = "newfile.txt";
-	GetFile(data);
+	scope_lock lock(_transferLocker);
+
+	for (auto& transfer : _activeTransfers)
+	{
+		if (transfer->IsFile(hash))
+			return true;
+	}
+
+	return false;
 }
 
 void Service::run()
