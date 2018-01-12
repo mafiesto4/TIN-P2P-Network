@@ -34,6 +34,7 @@ private:
 	std::queue<InputTransferData> _inputData;
 	std::queue<OutputTransferData> _outputData;
 	std::vector<FileTransfer*> _activeTransfers;
+	std::vector<FileTransfer*> _endedTransfers;
 	std::recursive_mutex _transferLocker;
 
 	std::vector<File*> _files;
@@ -88,4 +89,5 @@ private:
 	void GetFile(const InputTransferData& data);
 	void OnTransferStart(FileTransfer* transfer);
 	void OnTransferEnd(FileTransfer* transfer);
+	void HandleEndedTransfers();
 };

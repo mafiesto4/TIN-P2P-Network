@@ -268,6 +268,8 @@ void Service::run()
 	{
 		std::this_thread::sleep_for(1ms);
 
+		HandleEndedTransfers();
+
 		// Ping if need
 		if (_shouldPing)
 		{
@@ -340,6 +342,27 @@ void Service::run()
 							delete node;
 						}
 					}
+
+					break;
+				}
+				case MSG_TYPE_TRANSFER_INIT:
+				{
+					NetworkTransferInitMsg* msg = (NetworkTransferInitMsg*)msgBase;
+
+					// Validate sender
+					const auto node = GetNode(sender);
+					if (node == nullptr)
+					{
+						cout << "File transfer request from unknown node" << endl;
+						break;
+					}
+
+					// Push sending data request
+					OutputTransferData data;
+					data.TargetAddress = sender;
+					data.TcpPort = msg->TcpPort;
+					data.FileHash = msg->Hash;
+					SendFile(data);
 
 					break;
 				}
@@ -420,17 +443,43 @@ void Service::GetFile(const InputTransferData& data)
 void Service::OnTransferStart(FileTransfer* transfer)
 {
 	_activeTransfers.push_back(transfer);
-	// TODO: start thread
+	std::thread t(&Service::runTransfer, this, transfer);
+	transfer->_thread = move(t);
 }
 
 void Service::OnTransferEnd(FileTransfer* transfer)
 {
-	scope_lock lock(_transferLocker);
-
 	assert(transfer);
-	const auto i = std::find(_activeTransfers.begin(), _activeTransfers.end(), transfer);
-	assert(i != _activeTransfers.end());
 
-	_activeTransfers.erase(i);
-	delete transfer;
+	scope_lock lock(_transferLocker);
+	_endedTransfers.push_back(transfer);
+}
+
+void Service::HandleEndedTransfers()
+{
+	do
+	{
+		FileTransfer* transfer = nullptr;
+		{
+			scope_lock lock(_transferLocker);
+			if (!_endedTransfers.empty())
+			{
+				auto i = _endedTransfers.begin();
+				transfer = *i;
+				_endedTransfers.erase(i);
+				i = find(_activeTransfers.begin(), _activeTransfers.end(), transfer);
+				assert(i != _activeTransfers.end());
+				_activeTransfers.erase(i);
+			}
+		}
+		if (transfer == nullptr)
+			break;
+
+		// Wait for thread end
+		transfer->_thread.join();
+
+		// Cleanup
+		delete transfer;
+
+	} while (true);
 }

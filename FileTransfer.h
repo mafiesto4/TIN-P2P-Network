@@ -15,12 +15,26 @@ struct InputTransferData
 struct OutputTransferData
 {
 	sockaddr_in TargetAddress;
+	ushort TcpPort;
 	Hash FileHash;
 };
 
 // Base class for input and output transfers
 class FileTransfer
 {
+	friend class Service;
+
+private:
+	
+	std::thread _thread;
+
+public:
+
+	// Virtual destrutor
+	virtual ~FileTransfer()
+	{
+	}
+
 public:
 
 	// Checks if the file transfer uses node with the given address
