@@ -100,6 +100,7 @@ private:
 	void OnTransferStart(FileTransfer* transfer);
 	void OnTransferEnd(FileTransfer* transfer);
 	void HandleEndedTransfers();
+	void HandleFiles();
 	bool AddLocalFile(const std::string& filename, const Hash& hash, std::vector<char>& data);
 	bool StoreLocalFileData(File* file, std::vector<char>& data);
 	void UpdateLocalFiles();

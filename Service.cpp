@@ -353,6 +353,7 @@ void Service::run()
 		std::this_thread::sleep_for(1ms);
 
 		HandleEndedTransfers();
+		HandleFiles();
 
 		// Ping if need
 		if (_shouldPing)
@@ -365,31 +366,6 @@ void Service::run()
 		}
 
 		// TODO: handling in/out transfers if no active threads to use
-
-		// Remove not used remote files
-		{
-			scope_lock lock(_filesLocker);
-
-			std::vector<File*> toRemove;
-			for (auto& file : _files)
-			{
-				if (!file->IsLocal && !IsFileTransfer(file->Hash))
-				{
-					// File is not used in any transfer and it's signed to the other node so remove the local data
-					toRemove.push_back(file);
-				}
-			}
-
-			for (auto& file : toRemove)
-			{
-				_files.erase(std::find(_files.begin(), _files.end(), file));
-				if(!file->Path.empty())
-				{
-					std::experimental::filesystem::remove(file->Path);
-				}
-				delete file;
-			}
-		}
 
 		// Wait for a message (non blocking)
 		if (Socket::Select(_socket, &time_500ms, &isReady))
@@ -626,6 +602,31 @@ void Service::HandleEndedTransfers()
 		delete transfer;
 
 	} while (true);
+}
+
+void Service::HandleFiles()
+{
+	scope_lock lock(_filesLocker);
+
+	// Remove not used remote files and not used files marked to delete
+	std::vector<File*> toRemove;
+	for (auto& file : _files)
+	{
+		if ((!file->IsLocal || file->MarkedToRemove) && !IsFileTransfer(file->Hash))
+		{
+			// File is not used in any transfer and it's signed to the other node so remove the local data
+			toRemove.push_back(file);
+		}
+	}
+	for (auto& file : toRemove)
+	{
+		_files.erase(std::find(_files.begin(), _files.end(), file));
+		if (!file->Path.empty())
+		{
+			std::experimental::filesystem::remove(file->Path);
+		}
+		delete file;
+	}
 }
 
 bool Service::AddLocalFile(const std::string& filename, const Hash& hash, std::vector<char>& data)
