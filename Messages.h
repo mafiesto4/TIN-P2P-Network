@@ -14,6 +14,7 @@ struct NetworkMsg
 
 // Message types
 #define MSG_TYPE_NETOWRK_CHANGE 1
+#define MSG_TYPE_REMOVE_FILE 2
 #define MSG_TYPE_FIND_FILE 3
 #define MSG_TYPE_LIST_FILES 4
 #define MSG_TYPE_FILE_INFO 5
@@ -28,6 +29,14 @@ struct NetworkChangeMsg : NetworkMsg
 	char Name[MAX_MSG_NAME_LENGTH];
 };
 static_assert(sizeof(NetworkChangeMsg) <= MAX_NETWORK_MSG_SIZE, "Invalid message size");
+
+// Message send to remove existing file from the network
+struct NetworkRemoveFileMsg : NetworkMsg
+{
+	byte FilenameLength;
+	char Filename[MAX_MSG_NAME_LENGTH];
+};
+static_assert(sizeof(NetworkRemoveFileMsg) <= MAX_NETWORK_MSG_SIZE, "Invalid message size");
 
 // Message send to find file
 struct NetworkFindFileMsg : NetworkMsg

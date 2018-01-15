@@ -41,6 +41,9 @@ private:
 	std::string _getFilename;
 	std::string _getFileLocalPath;
 
+	bool _shouldRemoveFile = false;
+	std::string _removeFilename;
+
 	std::vector<InputTransferData> _inputData;
 	std::vector<OutputTransferData> _outputData;
 	std::vector<FileTransfer*> _activeTransfers;
@@ -84,6 +87,9 @@ public:
 
 	// Adds new file to the network
 	void AddFile(const std::string& filename);
+
+	// Removes file from the network
+	void RemoveFile(const std::string& filename);
 
 	// Tries to get file from the network
 	void DownloadFile(const std::string& filename, const std::string& localPath);

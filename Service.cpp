@@ -279,6 +279,21 @@ void Service::AddFile(const std::string& filename)
 	}
 }
 
+void Service::RemoveFile(const std::string& filename)
+{
+	// Skip if not running
+	if (!IsRunning())
+	{
+		cout << "Not running" << endl;
+		return;
+	}
+	if (_shouldRemoveFile)
+		return;
+
+	_removeFilename = filename;
+	_shouldRemoveFile = true;
+}
+
 void Service::DownloadFile(const std::string& filename, const std::string& localPath)
 {
 	// Skip if not running
@@ -566,6 +581,28 @@ void Service::run()
 
 					break;
 				}
+				case MSG_TYPE_REMOVE_FILE:
+				{
+					NetworkRemoveFileMsg* msg = (NetworkRemoveFileMsg*)msgBase;
+					const std::string filename = msg->Filename;
+
+					scope_lock lock(_filesLocker);
+
+					// Check if has that file
+					for (auto& file : _files)
+					{
+						if (file->Filename == filename)
+						{
+							cout << "Removing file \"" << filename << "\"" << endl;
+
+							// Mark to remove (will be deleted in HandleFiles if not used anymore)
+							file->MarkedToRemove = true;
+							break;
+						}
+					}
+
+					break;
+				}
 				case MSG_TYPE_FIND_FILE:
 				{
 					NetworkFindFileMsg* msg = (NetworkFindFileMsg*)msgBase;
@@ -830,6 +867,37 @@ void Service::HandleFiles()
 {
 	scope_lock lock(_filesLocker);
 
+	// Check if remove file
+	if (_shouldRemoveFile)
+	{
+		// Search local files
+		for (auto& file : _files)
+		{
+			if (file->Filename == _removeFilename)
+			{
+				cout << "Removing file \"" << _removeFilename << "\"" << endl;
+
+				// Mark to remove
+				file->MarkedToRemove = true;
+				break;
+			}
+		}
+
+		// Send message to the other nodes
+		NetworkRemoveFileMsg msg;
+		msg.Type = MSG_TYPE_REMOVE_FILE;
+		msg.Port = _port;
+		msg.FilenameLength = _removeFilename.size();
+		memcpy(msg.Filename, _removeFilename.c_str(), msg.FilenameLength + 1);
+		msg.Filename[msg.FilenameLength] = 0;
+		if (Broadcast(msg))
+		{
+			cout << "Failed to send remove file message" << endl;
+		}
+
+		_shouldRemoveFile = false;
+	}
+
 	// Remove not used remote files and not used files marked to delete
 	std::vector<File*> toRemove;
 	for (auto& file : _files)
@@ -879,7 +947,7 @@ void Service::HandleDownloadFile()
 	msg.Filename[msg.FilenameLength] = 0;
 	if(Broadcast(msg))
 	{
-		cout << "Faield to send find file message" << endl;
+		cout << "Failed to send find file message" << endl;
 		return;
 	}
 

@@ -108,8 +108,7 @@ int main()
 		}
 		else if (ParseCommandArg1(input, "remove", arg0))
 		{
-			// TODO: implement removing files
-			cout << "Not implemented" << endl;
+			Service::Instance.RemoveFile(arg0);
 		}
 		else if (ParseCommandArg2(input, "get", arg0, arg1) || ParseCommandArg1(input, "get", arg0))
 		{
@@ -117,7 +116,7 @@ int main()
 				arg1 = arg0;
 			Service::Instance.DownloadFile(arg0, arg1);
 		}
-		else if (ParseCommandArg0(input, "list") || ParseCommandArg1(input, "list", arg0))
+		else if (ParseCommandArg0(input, "files") || ParseCommandArg0(input, "list") || ParseCommandArg1(input, "list", arg0))
 		{
 			Service::Instance.ListFiles(arg0);
 		}
