@@ -10,7 +10,7 @@ struct NetworkMsg
 };
 
 // Maximum size (in bytes) for a single network message
-#define MAX_NETWORK_MSG_SIZE 386
+#define MAX_NETWORK_MSG_SIZE 290
 
 // Message types
 #define MSG_TYPE_NETOWRK_CHANGE 1
