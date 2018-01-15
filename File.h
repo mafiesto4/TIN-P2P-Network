@@ -10,6 +10,9 @@ public:
 	// Local file path
 	std::string Path;
 
+	// File name used inside the network (for add/remove/get requests)
+	std::string Filename;
+
 	// Unique file hash
 	Hash Hash;
 

@@ -3,6 +3,7 @@
 #include "Messages.h"
 #include <fstream>
 #include "md5.h"
+#include <filesystem>
 
 using namespace std;
 
@@ -108,6 +109,11 @@ void Service::Start(ushort port, const char* name)
 		return;
 	}
 
+	// Setup local files database
+	// TODO: better local database folder name or sth
+	_localFilesDatabasePath = nodeName;
+	std::experimental::filesystem::create_directory(_localFilesDatabasePath);
+
 	// Open sockets
 	if (_socket.Open(SOCK_DGRAM, IPPROTO_UDP) || _broadcastingSocket.Open(SOCK_DGRAM, IPPROTO_UDP))
 	{
@@ -162,6 +168,13 @@ void Service::Stop()
 	// Close network connections
 	_socket.Close();
 	_broadcastingSocket.Close();
+
+	// Remove local files
+	for (auto& file : _files)
+		delete file;
+	_files.clear();
+	std::experimental::filesystem::remove_all(_localFilesDatabasePath);
+	_localFilesDatabasePath.clear();
 
 	// Cleanup
 	for (auto& _node : _nodes)
@@ -243,9 +256,17 @@ void Service::AddFile(const std::string& filename)
 
 	// Create new file (local)
 	auto f = new File();
-	f->Path = filename;
+	f->Filename = filename;
 	f->Size = buffer.size();
 	CalculateHash(buffer, f->Hash);
+
+	// Place file in the local database
+	if(StoreLocalFileData(f, buffer))
+	{
+		delete f;
+		cout << "Failed to store file" << endl;
+		return;
+	}
 
 	// Update files
 	{
@@ -582,6 +603,42 @@ void Service::HandleEndedTransfers()
 	} while (true);
 }
 
+bool Service::AddLocalFile(const std::string& filename, const Hash& hash, std::vector<char>& data)
+{
+	// Create new file (local)
+	auto f = new File();
+	f->Filename = filename;
+	f->Size = data.size();
+	f->Hash = hash;
+
+	// Place file in the local database
+	if (StoreLocalFileData(f, data))
+	{
+		delete f;
+		return true;
+	}
+
+	// Update files
+	{
+		scope_lock lock(_filesLocker);
+		_files.push_back(f);
+	}
+
+	return false;
+}
+
+bool Service::StoreLocalFileData(File* file, std::vector<char>& data)
+{
+	// Evaluate local file path (in database)
+	file->Path = _localFilesDatabasePath + '/' + file->Filename;
+
+	// Serialize data
+	ofstream outfile(file->Path.c_str(), ios::out | ios::binary);
+	outfile.write(&data[0], data.size());
+
+	return false;
+}
+
 // Computes hashed value for the target node index that should store the file of the given hash (kind of hash from hash)
 int File2NodeHash(const Hash& hash, int nodesCount)
 {
@@ -613,8 +670,8 @@ void Service::UpdateLocalFiles()
 			NetworkTransferRequestMsg msg;
 			msg.Type = MSG_TYPE_TRANSFER_REQUEST;
 			msg.Port = _port;
-			msg.FilenameLength = file->Path.size();
-			memcpy(msg.Filename, file->Path.c_str(), msg.FilenameLength + 1);
+			msg.FilenameLength = file->Filename.size();
+			memcpy(msg.Filename, file->Filename.c_str(), msg.FilenameLength + 1);
 			msg.Filename[msg.FilenameLength] = 0;
 			msg.Hash = file->Hash;
 			msg.Size = file->Size;

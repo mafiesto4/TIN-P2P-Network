@@ -57,9 +57,14 @@ bool InputFileTransfer::Perform()
 		return true;
 	}
 
-	cout << "Recived file \"" << _data.FileName << "\"" << endl;
+	// Place file in the local database
+	if (Service::Instance.AddLocalFile(_data.FileName, _data.FileHash, data))
+	{
+		cout << "Failed to store file" << endl;
+		return true;
+	}
 
-	// TODO: store file in local database
+	cout << "Recived file \"" << _data.FileName << "\"" << endl;
 
 	return false;
 }

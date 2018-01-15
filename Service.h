@@ -9,6 +9,8 @@
 // The main peer-to-peer server controller. Exposes various functionalities and manages the network connections and structure.
 class Service
 {
+	friend class InputFileTransfer;
+
 public:
 
 	// The global instance of the service (singleton)
@@ -37,6 +39,7 @@ private:
 	std::vector<FileTransfer*> _endedTransfers;
 	std::recursive_mutex _transferLocker;
 
+	std::string _localFilesDatabasePath;
 	std::vector<File*> _files;
 	std::recursive_mutex _filesLocker;
 
@@ -97,5 +100,7 @@ private:
 	void OnTransferStart(FileTransfer* transfer);
 	void OnTransferEnd(FileTransfer* transfer);
 	void HandleEndedTransfers();
+	bool AddLocalFile(const std::string& filename, const Hash& hash, std::vector<char>& data);
+	bool StoreLocalFileData(File* file, std::vector<char>& data);
 	void UpdateLocalFiles();
 };
