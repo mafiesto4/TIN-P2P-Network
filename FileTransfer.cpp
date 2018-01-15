@@ -1,6 +1,7 @@
 #include "FileTransfer.h"
 #include "Socket.h"
 #include <iostream>
+#include <fstream>
 #include "Messages.h"
 #include "Service.h"
 
@@ -49,12 +50,16 @@ bool InputFileTransfer::Perform()
 	{
 		return true;
 	}
-	char data[32];
-	if(msgsock.ReceiveData(data, 32))
+	std::vector<char> data(_data.FileSize);
+	if(msgsock.ReceiveData(&data[0], data.size()))
 	{
 		cout << "Failed to get data" << endl;
 		return true;
 	}
+
+	cout << "Recived file \"" << _data.FileName << "\"" << endl;
+
+	// TODO: store file in local database
 
 	return false;
 }
@@ -72,19 +77,46 @@ bool OutputFileTransfer::Perform()
 	// Connect
 	sockaddr_in targetTcpAddr = _data.TargetAddress;
 	targetTcpAddr.sin_port = htons(_data.TcpPort);
-	if(tcpSocket.Connect(targetTcpAddr))
+	if (tcpSocket.Connect(targetTcpAddr))
 	{
 		cout << "Failed to connect" << endl;
 		return true;
 	}
 
-	// TODO: get file data
-	char data[32];
-	for (int i = 0; i < 32; i++)
-		data[i] = i;
+	// Get file data
+	auto f = Service::Instance.GetFile(_data.FileHash);
+	if (f == nullptr)
+	{
+		return true;
+	}
+	std::vector<char> buffer(f->Size);
+	{
+		// Open file
+		std::ifstream file(f->Path.c_str(), std::ios::binary | std::ios::ate);
+		if (!file.good())
+		{
+			cout << "Cannot open file (or invalid path)" << endl;
+			return true;
+		}
+
+		// Read all data
+		const std::streamsize size = file.tellg();
+		file.seekg(0, std::ios::beg);
+		if (size <= 0 || size != f->Size)
+		{
+			cout << "Invalid file size" << endl;
+			return true;
+		}
+		if (!file.read(buffer.data(), size))
+		{
+			cout << "Failed to load file" << endl;
+			return true;
+		}
+		file.close();
+	}
 
 	// Transfer data
-	if (tcpSocket.SendData(data, 32))
+	if (tcpSocket.SendData(&buffer[0], buffer.size()))
 	{
 		cout << "Failed to send data" << endl;
 		return true;
