@@ -12,9 +12,9 @@ using namespace std;
 Service Service::Instance;
 
 // Computes hashed value for the target node index that should store the file of the given hash (kind of hash from hash)
-int File2NodeHash(const Hash& hash, int nodesCount)
+uint File2NodeHash(const Hash& hash, int nodesCount)
 {
-	int v = hash.Data[0];
+	uint v = hash.Data[0];
 	for (int i = 1; i < 16; i++)
 		v = (v * 379) ^ hash.Data[0];
 	return v % nodesCount;
@@ -966,7 +966,7 @@ void Service::HandleFilesLocality()
 
 	for (auto& file : _files)
 	{
-		const int node = File2NodeHash(file->Hash, nodesCnt);
+		const uint node = File2NodeHash(file->Hash, nodesCnt);
 		assert(node >= 0 && node < nodesCnt);
 		const bool isLocal = _nodes[node] == GetLocalNode();
 		file->IsLocal = isLocal;
