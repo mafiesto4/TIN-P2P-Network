@@ -113,8 +113,9 @@ int main()
 		}
 		else if (ParseCommandArg2(input, "get", arg0, arg1) || ParseCommandArg1(input, "get", arg0))
 		{
-			// TODO: implement getting files
-			cout << "Not implemented" << endl;
+			if (arg1.empty())
+				arg1 = arg0;
+			Service::Instance.DownloadFile(arg0, arg1);
 		}
 		else if (ParseCommandArg0(input, "list") || ParseCommandArg1(input, "list", arg0))
 		{

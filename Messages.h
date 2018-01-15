@@ -14,6 +14,7 @@ struct NetworkMsg
 
 // Message types
 #define MSG_TYPE_NETOWRK_CHANGE 1
+#define MSG_TYPE_FIND_FILE 3
 #define MSG_TYPE_LIST_FILES 4
 #define MSG_TYPE_FILE_INFO 5
 #define MSG_TYPE_TRANSFER_REQUEST 6
@@ -28,6 +29,14 @@ struct NetworkChangeMsg : NetworkMsg
 };
 static_assert(sizeof(NetworkChangeMsg) <= MAX_NETWORK_MSG_SIZE, "Invalid message size");
 
+// Message send to find file
+struct NetworkFindFileMsg : NetworkMsg
+{
+	byte FilenameLength;
+	char Filename[MAX_MSG_NAME_LENGTH];
+};
+static_assert(sizeof(NetworkFindFileMsg) <= MAX_NETWORK_MSG_SIZE, "Invalid message size");
+
 // Message send to get owned files list
 struct NetworkListFilesMsg : NetworkMsg
 {
@@ -41,6 +50,8 @@ struct NetworkFileInfoMsg : NetworkMsg
 	int FilesCount;
 	byte FilenameLength;
 	char Filename[MAX_MSG_NAME_LENGTH];
+	int Size;
+	Hash Hash;
 };
 static_assert(sizeof(NetworkFileInfoMsg) <= MAX_NETWORK_MSG_SIZE, "Invalid message size");
 

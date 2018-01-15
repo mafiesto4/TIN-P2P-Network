@@ -36,6 +36,11 @@ private:
 	bool _shouldListFiles = false;
 	std::string _listHostname;
 
+	bool _shouldGetFile = false;
+	bool _getFileWaitForInfo = false;
+	std::string _getFilename;
+	std::string _getFileLocalPath;
+
 	std::vector<InputTransferData> _inputData;
 	std::vector<OutputTransferData> _outputData;
 	std::vector<FileTransfer*> _activeTransfers;
@@ -80,6 +85,9 @@ public:
 	// Adds new file to the network
 	void AddFile(const std::string& filename);
 
+	// Tries to get file from the network
+	void DownloadFile(const std::string& filename, const std::string& localPath);
+
 	// Sends a message to the connected nodes or choosen host (if valid) to recive files list
 	void ListFiles(const std::string& hostName);
 
@@ -96,6 +104,9 @@ public:
 
 	// Tries to find local file by the given file hash, returns null if not found
 	File* GetFile(const Hash& hash);
+
+	// Tries to find local file by the given filename, returns null if not found
+	File* GetFile(const std::string& filename);
 
 	// Checks if file with given hash is during transfer (input or output)
 	bool IsFileTransfer(const Hash& hash);
@@ -119,6 +130,7 @@ private:
 	void HandleEndedTransfers();
 	void HandleNewTransfers();
 	void HandleFiles();
+	void HandleDownloadFile();
 	bool AddLocalFile(const std::string& filename, const Hash& hash, std::vector<char>& data);
 	bool StoreLocalFileData(File* file, std::vector<char>& data);
 	void UpdateLocalFiles();

@@ -279,6 +279,23 @@ void Service::AddFile(const std::string& filename)
 	}
 }
 
+void Service::DownloadFile(const std::string& filename, const std::string& localPath)
+{
+	// Skip if not running
+	if (!IsRunning())
+	{
+		cout << "Not running" << endl;
+		return;
+	}
+	if (_shouldGetFile)
+		return;
+
+	_getFilename = filename;
+	_getFileLocalPath = localPath;
+	_shouldGetFile = true;
+	_getFileWaitForInfo = false;
+}
+
 void Service::ListFiles(const std::string& hostName)
 {
 	// Skip if not running
@@ -291,6 +308,7 @@ void Service::ListFiles(const std::string& hostName)
 		return;
 
 	_listHostname = hostName;
+	_getFileWaitForInfo = false;
 	_shouldListFiles = true;
 }
 
@@ -335,6 +353,19 @@ File* Service::GetFile(const Hash& hash)
 	for (auto& file : _files)
 	{
 		if (file->Hash == hash)
+			return file;
+	}
+
+	return nullptr;
+}
+
+File* Service::GetFile(const std::string& filename)
+{
+	scope_lock lock(_filesLocker);
+
+	for (auto& file : _files)
+	{
+		if (file->Filename == filename)
 			return file;
 	}
 
@@ -420,6 +451,7 @@ void Service::run()
 
 		HandleEndedTransfers();
 		HandleNewTransfers();
+		HandleDownloadFile();
 		HandleFiles();
 
 		// Ping if need
@@ -534,6 +566,41 @@ void Service::run()
 
 					break;
 				}
+				case MSG_TYPE_FIND_FILE:
+				{
+					NetworkFindFileMsg* msg = (NetworkFindFileMsg*)msgBase;
+					const std::string filename = msg->Filename;
+
+					scope_lock lock(_filesLocker);
+
+					// Check if has that file
+					int index = 0;
+					for (auto& file : _files)
+					{
+						index++;
+						if (file->Filename == filename)
+						{
+							NetworkFileInfoMsg msg;
+							msg.Type = MSG_TYPE_FILE_INFO;
+							msg.Port = _port;
+							msg.FileIndex = index;
+							msg.FilesCount = _files.size();
+							msg.FilenameLength = file->Filename.size();
+							memcpy(msg.Filename, file->Filename.c_str(), msg.FilenameLength + 1);
+							msg.Filename[msg.FilenameLength] = 0;
+							msg.Size = file->Size;
+							msg.Hash = file->Hash;
+							if (_socket.Send(sender, msg))
+							{
+								cout << "Failed to send file info message" << endl;
+							}
+
+							break;
+						}
+					}
+
+					break;
+				}
 				case MSG_TYPE_LIST_FILES:
 				{
 					scope_lock lock(_filesLocker);
@@ -550,6 +617,8 @@ void Service::run()
 						msg.FilenameLength = file->Filename.size();
 						memcpy(msg.Filename, file->Filename.c_str(), msg.FilenameLength + 1);
 						msg.Filename[msg.FilenameLength] = 0;
+						msg.Size = file->Size;
+						msg.Hash = file->Hash;
 						if (_socket.Send(sender, msg))
 						{
 							cout << "Failed to send file info message" << endl;
@@ -570,7 +639,22 @@ void Service::run()
 						break;
 					}
 
-					cout << node->GetName() << ": " << msg->Filename << endl;
+					// Check if it's file to get
+					if(_getFileWaitForInfo && msg->Filename == _getFilename)
+					{
+						// Get this file
+						InputTransferData data;
+						data.TargetAddress = sender;
+						data.FileSize = msg->Size;
+						data.FileName = msg->Filename;
+						data.FileHash = msg->Hash;
+						GetFile(data);
+					}
+					else
+					{
+						// Print file info
+						cout << node->GetName() << ": " << msg->Filename << endl;
+					}
 
 					break;
 				}
@@ -767,8 +851,56 @@ void Service::HandleFiles()
 	}
 }
 
+void Service::HandleDownloadFile()
+{
+	// Get file if need
+	if (!_shouldGetFile)
+		return;
+	_shouldGetFile = false;
+
+	// Check itself
+	{
+		scope_lock lock(_filesLocker);
+		const auto file = GetFile(_getFilename);
+		if (file && !file->Path.empty())
+		{
+			cout << "Getting local file" << endl;
+			std::experimental::filesystem::copy_file(file->Path, _getFileLocalPath, experimental::filesystem::copy_options::update_existing);
+			return;
+		}
+	}
+
+	// Find this file (just ask other nodes for this file)
+	NetworkFindFileMsg msg;
+	msg.Type = MSG_TYPE_FIND_FILE;
+	msg.Port = _port;
+	msg.FilenameLength = _getFilename.size();
+	memcpy(msg.Filename, _getFilename.c_str(), msg.FilenameLength + 1);
+	msg.Filename[msg.FilenameLength] = 0;
+	if(Broadcast(msg))
+	{
+		cout << "Faield to send find file message" << endl;
+		return;
+	}
+
+	_getFileWaitForInfo = true;
+}
+
 bool Service::AddLocalFile(const std::string& filename, const Hash& hash, std::vector<char>& data)
 {
+	// Check if it's file to get
+	if(_getFileWaitForInfo && filename == _getFilename)
+	{
+		cout << "Downloaded file" << endl;
+		ofstream outfile(_getFileLocalPath, ios::out | ios::binary);
+		outfile.write(&data[0], data.size());
+		_getFileWaitForInfo = false;
+		_getFilename.clear();
+		_getFileLocalPath.clear();
+		_shouldGetFile = false;
+		return false;
+	}
+
 	// Create new file (local)
 	auto f = new File();
 	f->Filename = filename;
