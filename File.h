@@ -24,4 +24,7 @@ public:
 
 	// True if remove file if not used
 	bool MarkedToRemove = false;
+
+	// Time To Live in seconds (updated by the service internally)
+	float TTL = 3;
 };

@@ -4,10 +4,21 @@
 #include <fstream>
 #include "md5.h"
 #include <filesystem>
+#include <stdio.h>
+#include <time.h>
 
 using namespace std;
 
 Service Service::Instance;
+
+// Computes hashed value for the target node index that should store the file of the given hash (kind of hash from hash)
+int File2NodeHash(const Hash& hash, int nodesCount)
+{
+	int v = hash.Data[0];
+	for (int i = 1; i < 16; i++)
+		v = (v * 379) ^ hash.Data[0];
+	return v % nodesCount;
+}
 
 bool ParseAddress(const std::string& address, sockaddr_in& addr)
 {
@@ -467,6 +478,7 @@ void Service::run()
 		HandleEndedTransfers();
 		HandleNewTransfers();
 		HandleDownloadFile();
+		HandleFilesLocality();
 		HandleFiles();
 
 		// Ping if need
@@ -597,6 +609,7 @@ void Service::run()
 
 							// Mark to remove (will be deleted in HandleFiles if not used anymore)
 							file->MarkedToRemove = true;
+							file->TTL = 0.5f;
 							break;
 						}
 					}
@@ -867,6 +880,22 @@ void Service::HandleFiles()
 {
 	scope_lock lock(_filesLocker);
 
+	// Update TTL
+	static time_t LastUpdate = 0;
+	time_t seconds = time(NULL);
+	if (LastUpdate == 0)
+		LastUpdate = seconds;
+	time_t diff = seconds - LastUpdate;
+	LastUpdate = seconds;
+	if (diff > 0)
+	{
+		for (auto& file : _files)
+		{
+			if (file->TTL > 0)
+				file->TTL -= diff;
+		}
+	}
+
 	// Check if remove file
 	if (_shouldRemoveFile)
 	{
@@ -879,6 +908,7 @@ void Service::HandleFiles()
 
 				// Mark to remove
 				file->MarkedToRemove = true;
+				file->TTL = 0.5f;
 				break;
 			}
 		}
@@ -902,7 +932,7 @@ void Service::HandleFiles()
 	std::vector<File*> toRemove;
 	for (auto& file : _files)
 	{
-		if ((!file->IsLocal || file->MarkedToRemove) && !IsFileTransfer(file->Hash))
+		if (file->TTL <= 0.0f && (!file->IsLocal || file->MarkedToRemove) && !IsFileTransfer(file->Hash))
 		{
 			// File is not used in any transfer and it's signed to the other node so remove the local data
 			toRemove.push_back(file);
@@ -916,6 +946,49 @@ void Service::HandleFiles()
 			std::experimental::filesystem::remove(file->Path);
 		}
 		delete file;
+	}
+}
+
+void Service::HandleFilesLocality()
+{
+	// Skip if flag is empty
+	if (!_updateLocalFiles)
+		return;
+	_updateLocalFiles = false;
+
+	// This method checks all local files to see if need to transfer any of them to the another nodes
+	// Warning: it locks both files and nodes lists, should not introducte deadlocks
+	// Note: this assumes that nodes are sorted by the IP address and port - deterministic on all hosts
+
+	scope_lock lock1(_filesLocker);
+	scope_lock lock2(_nodesLocker);
+	const int nodesCnt = _nodes.size();
+
+	for (auto& file : _files)
+	{
+		const int node = File2NodeHash(file->Hash, nodesCnt);
+		assert(node >= 0 && node < nodesCnt);
+		const bool isLocal = _nodes[node] == GetLocalNode();
+		file->IsLocal = isLocal;
+		if (!isLocal)
+		{
+			// Give some time until removing this file
+			file->TTL = 2.0f;
+
+			// Notify node about file it should have
+			NetworkTransferRequestMsg msg;
+			msg.Type = MSG_TYPE_TRANSFER_REQUEST;
+			msg.Port = _port;
+			msg.FilenameLength = file->Filename.size();
+			memcpy(msg.Filename, file->Filename.c_str(), msg.FilenameLength + 1);
+			msg.Filename[msg.FilenameLength] = 0;
+			msg.Hash = file->Hash;
+			msg.Size = file->Size;
+			if (_socket.Send(_nodes[node]->GetAddress(), msg))
+			{
+				cout << "Failed to send transfer notify message" << endl;
+			}
+		}
 	}
 }
 
@@ -1003,48 +1076,8 @@ bool Service::StoreLocalFileData(File* file, std::vector<char>& data)
 	return false;
 }
 
-// Computes hashed value for the target node index that should store the file of the given hash (kind of hash from hash)
-int File2NodeHash(const Hash& hash, int nodesCount)
-{
-	int v = hash.Data[0];
-	for (int i = 1; i < 16; i++)
-		v = (v * 379) ^ hash.Data[0];
-	return v % nodesCount;
-}
-
 void Service::UpdateLocalFiles()
 {
-	// TODO: update resources after delay to prevent flashing files data or sth (small latency e.g. 50ms)
-
-	// This method checks all local files to see if need to transfer any of them to the another nodes
-	// Warning: it locks both files and nodes lists, should not introducte deadlocks
-	// Note: this assumes that nodes are sorted by the IP address and port - deterministic on all hosts
-
-	scope_lock lock1(_filesLocker);
-	scope_lock lock2(_nodesLocker);
-	const int nodesCnt = _nodes.size();
-
-	for (auto& file : _files)
-	{
-		const int node = File2NodeHash(file->Hash, nodesCnt);
-		assert(node >= 0 && node < nodesCnt);
-		const bool isLocal = _nodes[node] == GetLocalNode();
-		file->IsLocal = isLocal;
-		if (!isLocal)
-		{
-			// Notify node about file it should have
-			NetworkTransferRequestMsg msg;
-			msg.Type = MSG_TYPE_TRANSFER_REQUEST;
-			msg.Port = _port;
-			msg.FilenameLength = file->Filename.size();
-			memcpy(msg.Filename, file->Filename.c_str(), msg.FilenameLength + 1);
-			msg.Filename[msg.FilenameLength] = 0;
-			msg.Hash = file->Hash;
-			msg.Size = file->Size;
-			if (_socket.Send(_nodes[node]->GetAddress(), msg))
-			{
-				cout << "Failed to send transfer notify message" << endl;
-			}
-		}
-	}
+	// Set flag
+	_updateLocalFiles = true;
 }

@@ -44,6 +44,8 @@ private:
 	bool _shouldRemoveFile = false;
 	std::string _removeFilename;
 
+	bool _updateLocalFiles = false;
+
 	std::vector<InputTransferData> _inputData;
 	std::vector<OutputTransferData> _outputData;
 	std::vector<FileTransfer*> _activeTransfers;
@@ -136,6 +138,7 @@ private:
 	void HandleEndedTransfers();
 	void HandleNewTransfers();
 	void HandleFiles();
+	void HandleFilesLocality();
 	void HandleDownloadFile();
 	bool AddLocalFile(const std::string& filename, const Hash& hash, std::vector<char>& data);
 	bool StoreLocalFileData(File* file, std::vector<char>& data);
