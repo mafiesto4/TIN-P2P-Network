@@ -12,4 +12,7 @@ public:
 
 	// Unique file hash
 	Hash Hash;
+
+	// File size (in bytes)
+	int Size;
 };

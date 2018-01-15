@@ -230,6 +230,7 @@ void Service::AddFile(const std::string& filename)
 	// Create new file (local)
 	auto f = new File();
 	f->Path = filename;
+	f->Size = buffer.size();
 	CalculateHash(buffer, f->Hash);
 
 	// Update files
@@ -395,6 +396,32 @@ void Service::run()
 							// Redistribute resources
 							UpdateLocalFiles();
 						}
+					}
+
+					break;
+				}
+				case MSG_TYPE_TRANSFER_REQUEST:
+				{
+					NetworkTransferRequestMsg* msg = (NetworkTransferRequestMsg*)msgBase;
+
+					// Validate sender
+					const auto node = GetNode(sender);
+					if (node == nullptr)
+					{
+						cout << "File transfer request from unknown node" << endl;
+						break;
+					}
+
+					// Validate if file has been already added to this node
+					if (GetFile(msg->Hash) == nullptr)
+					{
+						// Push reciving data request
+						InputTransferData data;
+						data.TargetAddress = sender;
+						data.FileSize = msg->Size;
+						data.FileName = msg->Filename;
+						data.FileHash = msg->Hash;
+						GetFile(data);
 					}
 
 					break;
@@ -565,8 +592,19 @@ void Service::UpdateLocalFiles()
 		assert(node >= 0 && node < nodesCnt);
 		if (_nodes[node] != GetLocalNode())
 		{
-			// TODO: send file to that node
-			cout << "Should send " << file->Path << " to node " << _nodes[node]->GetName() << endl;
+			// Notify node about file it should have
+			NetworkTransferRequestMsg msg;
+			msg.Type = MSG_TYPE_TRANSFER_REQUEST;
+			msg.Port = _port;
+			msg.FilenameLength = file->Path.size();
+			memcpy(msg.Filename, file->Path.c_str(), msg.FilenameLength + 1);
+			msg.Filename[msg.FilenameLength] = 0;
+			msg.Hash = file->Hash;
+			msg.Size = file->Size;
+			if (_socket.Send(_nodes[node]->GetAddress(), msg))
+			{
+				cout << "Failed to send transfer notify message" << endl;
+			}
 		}
 	}
 }
