@@ -1,6 +1,8 @@
 #include "Service.h"
 #include <iostream>
 #include "Messages.h"
+#include <fstream>
+#include "md5.h"
 
 using namespace std;
 
@@ -197,6 +199,50 @@ void Service::Ping(const std::string& address)
 	_shouldPing = true;
 }
 
+void CalculateHash(std::vector<char>& data, Hash& hash)
+{
+	// Use MD5
+	MD5 md5 = MD5(data);
+	md5.get(hash.Data);
+}
+
+void Service::AddFile(const std::string& filename)
+{
+	// Open file
+	std::ifstream file(filename.c_str(), std::ios::binary | std::ios::ate);
+	if(!file.good())
+	{
+		cout << "Cannot open file (or invalid path)" << endl;
+		return;
+	}
+
+	// Read all data
+	const std::streamsize size = file.tellg();
+	file.seekg(0, std::ios::beg);
+	std::vector<char> buffer(size);
+	if (!file.read(buffer.data(), size))
+	{
+		cout << "Failed to load file" << endl;
+		return;
+	}
+	file.close();
+
+	// Create new file (local)
+	auto f = new File();
+	f->Path = filename;
+	CalculateHash(buffer, f->Hash);
+
+	// Update files
+	{
+		scope_lock lock(_filesLocker);
+		_files.push_back(f);
+		cout << "File \"" << filename << "\" added!" << endl;
+
+		// Redistribute resources
+		UpdateLocalFiles();
+	}
+}
+
 void Service::GetNodes(std::vector<Node*>* output)
 {
 	assert(output);
@@ -330,6 +376,9 @@ void Service::run()
 							}
 
 							cout << "Node connected: " << node << endl;
+
+							// Redistribute resources
+							UpdateLocalFiles();
 						}
 					}
 					else
@@ -342,6 +391,9 @@ void Service::run()
 
 							_nodes.erase(std::find(_nodes.begin(), _nodes.end(), node));
 							delete node;
+
+							// Redistribute resources
+							UpdateLocalFiles();
 						}
 					}
 
@@ -484,4 +536,37 @@ void Service::HandleEndedTransfers()
 		delete transfer;
 
 	} while (true);
+}
+
+// Computes hashed value for the target node index that should store the file of the given hash (kind of hash from hash)
+int File2NodeHash(const Hash& hash, int nodesCount)
+{
+	int v = hash.Data[0];
+	for (int i = 1; i < 16; i++)
+		v = (v * 379) ^ hash.Data[0];
+	return v % nodesCount;
+}
+
+void Service::UpdateLocalFiles()
+{
+	// TODO: update resources after delay to prevent flashing files data or sth (small latency e.g. 50ms)
+
+	// This method checks all local files to see if need to transfer any of them to the another nodes
+	// Warning: it locks both files and nodes lists, should not introducte deadlocks
+	// Note: this assumes that nodes are sorted by the IP address and port - deterministic on all hosts
+
+	scope_lock lock1(_filesLocker);
+	scope_lock lock2(_nodesLocker);
+	const int nodesCnt = _nodes.size();
+
+	for (auto& file : _files)
+	{
+		const int node = File2NodeHash(file->Hash, nodesCnt);
+		assert(node >= 0 && node < nodesCnt);
+		if (_nodes[node] != GetLocalNode())
+		{
+			// TODO: send file to that node
+			cout << "Should send " << file->Path << " to node " << _nodes[node]->GetName() << endl;
+		}
+	}
 }

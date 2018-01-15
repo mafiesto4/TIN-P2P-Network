@@ -71,6 +71,9 @@ public:
 	// Allows to ping given address (with or without a port) to detect running service
 	void Ping(const std::string& address);
 
+	// Adds new file to the network
+	void AddFile(const std::string& filename);
+
 public:
 
 	// Gets the collection of nodes in the network
@@ -94,4 +97,5 @@ private:
 	void OnTransferStart(FileTransfer* transfer);
 	void OnTransferEnd(FileTransfer* transfer);
 	void HandleEndedTransfers();
+	void UpdateLocalFiles();
 };
