@@ -104,8 +104,7 @@ int main()
 		}
 		else if (ParseCommandArg1(input, "add", arg0))
 		{
-			// TODO: implement adding files
-			cout << "Not implemented" << endl;
+			Service::Instance.AddFile(arg0);
 		}
 		else if (ParseCommandArg1(input, "remove", arg0))
 		{
