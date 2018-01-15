@@ -36,8 +36,8 @@ private:
 	bool _shouldListFiles = false;
 	std::string _listHostname;
 
-	std::queue<InputTransferData> _inputData;
-	std::queue<OutputTransferData> _outputData;
+	std::vector<InputTransferData> _inputData;
+	std::vector<OutputTransferData> _outputData;
 	std::vector<FileTransfer*> _activeTransfers;
 	std::vector<FileTransfer*> _endedTransfers;
 	std::recursive_mutex _transferLocker;
@@ -117,6 +117,7 @@ private:
 	void OnTransferStart(FileTransfer* transfer);
 	void OnTransferEnd(FileTransfer* transfer);
 	void HandleEndedTransfers();
+	void HandleNewTransfers();
 	void HandleFiles();
 	bool AddLocalFile(const std::string& filename, const Hash& hash, std::vector<char>& data);
 	bool StoreLocalFileData(File* file, std::vector<char>& data);

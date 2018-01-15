@@ -140,8 +140,8 @@ void Service::Start(ushort port, const char* name)
 	_port = ntohs(addr.sin_port);
 
 	// Cleanup
-	_inputData = queue<InputTransferData>();
-	_outputData = queue<OutputTransferData>();
+	_inputData = vector<InputTransferData>();
+	_outputData = vector<OutputTransferData>();
 
 	cout << "Running service on localhost:" << _port << endl;
 	cout << "Name: " << _local->GetName() << endl;
@@ -345,9 +345,22 @@ bool Service::IsFileTransfer(const Hash& hash)
 {
 	scope_lock lock(_transferLocker);
 
+	// Check active transfers
 	for (auto& transfer : _activeTransfers)
 	{
 		if (transfer->IsFile(hash))
+			return true;
+	}
+
+	// Check queued transfers
+	for (auto& data : _inputData)
+	{
+		if (data.FileHash == hash)
+			return true;
+	}
+	for (auto& data : _outputData)
+	{
+		if (data.FileHash == hash)
 			return true;
 	}
 
@@ -406,6 +419,7 @@ void Service::run()
 		std::this_thread::sleep_for(1ms);
 
 		HandleEndedTransfers();
+		HandleNewTransfers();
 		HandleFiles();
 
 		// Ping if need
@@ -447,8 +461,6 @@ void Service::run()
 
 			_shouldListFiles = false;
 		}
-
-		// TODO: handling in/out transfers if no active threads to use
 
 		// Wait for a message (non blocking)
 		if (Socket::Select(_socket, &time_500ms, &isReady))
@@ -650,7 +662,7 @@ void Service::SendFile(const OutputTransferData& data)
 	}
 
 	// Store data to handle it later
-	_outputData.emplace(data);
+	_outputData.push_back(data);
 }
 
 void Service::GetFile(const InputTransferData& data)
@@ -666,7 +678,7 @@ void Service::GetFile(const InputTransferData& data)
 	}
 
 	// Store data to handle it later
-	_inputData.emplace(data);
+	_inputData.push_back(data);
 }
 
 void Service::OnTransferStart(FileTransfer* transfer)
@@ -711,6 +723,23 @@ void Service::HandleEndedTransfers()
 		delete transfer;
 
 	} while (true);
+}
+
+void Service::HandleNewTransfers()
+{
+	scope_lock lock(_transferLocker);
+
+	// Try to start new file transfers from the waiting queue
+	while (!_inputData.empty() && _activeTransfers.size() < MAX_ACTIVE_TRANSFERS_COUNT)
+	{
+		GetFile(_inputData.at(0));
+		_inputData.erase(_inputData.begin());
+	}
+	while (!_outputData.empty() && _activeTransfers.size() < MAX_ACTIVE_TRANSFERS_COUNT)
+	{
+		SendFile(_outputData.at(0));
+		_outputData.erase(_outputData.begin());
+	}
 }
 
 void Service::HandleFiles()
