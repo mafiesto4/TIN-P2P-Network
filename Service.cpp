@@ -188,7 +188,7 @@ void Service::Stop()
 
 void Service::Ping(const std::string& address)
 {
-	// Skip if not runnweqning
+	// Skip if not running
 	if (!IsRunning())
 	{
 		cout << "Not running" << endl;
@@ -279,6 +279,21 @@ void Service::AddFile(const std::string& filename)
 	}
 }
 
+void Service::ListFiles(const std::string& hostName)
+{
+	// Skip if not running
+	if (!IsRunning())
+	{
+		cout << "Not running" << endl;
+		return;
+	}
+	if (_shouldListFiles)
+		return;
+
+	_listHostname = hostName;
+	_shouldListFiles = true;
+}
+
 void Service::GetNodes(std::vector<Node*>* output)
 {
 	assert(output);
@@ -294,6 +309,19 @@ Node* Service::GetNode(const sockaddr_in& addr)
 	for(auto& node : _nodes)
 	{
 		if (node->GetAddress() == addr)
+			return node;
+	}
+
+	return nullptr;
+}
+
+Node* Service::GetNode(const std::string& hostname)
+{
+	scope_lock lock(_nodesLocker);
+
+	for (auto& node : _nodes)
+	{
+		if (node->GetName() == hostname)
 			return node;
 	}
 
@@ -321,6 +349,31 @@ bool Service::IsFileTransfer(const Hash& hash)
 	{
 		if (transfer->IsFile(hash))
 			return true;
+	}
+
+	return false;
+}
+
+bool Service::Broadcast(const char* data, int length)
+{
+	if (_broadcastingSocket.Broadcast(_port, data, length))
+	{
+		return true;
+	}
+
+	// Also send ending message to the connected nodes that use different service port
+	{
+		scope_lock lock(_nodesLocker);
+
+		const u_short port = htons(_port);
+		for (auto& node : _nodes)
+		{
+			if (node->GetAddress().sin_port != port)
+			{
+				if (_socket.Send(node->GetAddress(), data, length))
+					return true;
+			}
+		}
 	}
 
 	return false;
@@ -363,6 +416,36 @@ void Service::run()
 				cout << "Failed to send ping message" << endl;
 			}
 			_shouldPing = false;
+		}
+
+		// List files if need
+		if (_shouldListFiles)
+		{
+			// TODO: this should be done in a better way (create eparate socket/thread and use it for handling this)
+			NetworkListFilesMsg msg;
+			msg.Type = MSG_TYPE_LIST_FILES;
+			msg.Port = _port;
+			bool result;
+			const auto node = GetNode(_listHostname);
+			if (node)
+				result = _socket.Send(node->GetAddress(), msg);
+			else
+				result = Broadcast(msg);
+			if (result)
+			{
+				cout << "Failed to send file list message" << endl;
+			}
+
+			// Print local files
+			{
+				cout << "Files:" << endl;
+				auto thisNode = GetLocalNode();
+				scope_lock lock(_filesLocker);
+				for (auto& file : _files)
+					cout << thisNode->GetName() << ": " << file->Filename << endl;
+			}
+
+			_shouldListFiles = false;
 		}
 
 		// TODO: handling in/out transfers if no active threads to use
@@ -439,6 +522,46 @@ void Service::run()
 
 					break;
 				}
+				case MSG_TYPE_LIST_FILES:
+				{
+					scope_lock lock(_filesLocker);
+
+					// Send back all owned files
+					int index = 0;
+					for (auto& file : _files)
+					{
+						NetworkFileInfoMsg msg;
+						msg.Type = MSG_TYPE_FILE_INFO;
+						msg.Port = _port;
+						msg.FileIndex = index++;
+						msg.FilesCount = _files.size();
+						msg.FilenameLength = file->Filename.size();
+						memcpy(msg.Filename, file->Filename.c_str(), msg.FilenameLength + 1);
+						msg.Filename[msg.FilenameLength] = 0;
+						if (_socket.Send(sender, msg))
+						{
+							cout << "Failed to send file info message" << endl;
+						}
+					}
+
+					break;
+				}
+				case MSG_TYPE_FILE_INFO:
+				{
+					NetworkFileInfoMsg* msg = (NetworkFileInfoMsg*)msgBase;
+
+					// Validate sender
+					const auto node = GetNode(sender);
+					if (node == nullptr)
+					{
+						cout << "File transfer request from unknown node" << endl;
+						break;
+					}
+
+					cout << node->GetName() << ": " << msg->Filename << endl;
+
+					break;
+				}
 				case MSG_TYPE_TRANSFER_REQUEST:
 				{
 					NetworkTransferRequestMsg* msg = (NetworkTransferRequestMsg*)msgBase;
@@ -495,23 +618,9 @@ void Service::run()
 
 	// Broadcast about node leaving the network
 	thisChangeMsg.IsNew = 0;
-	if (_broadcastingSocket.Broadcast(_port, thisChangeMsg))
+	if (Broadcast(thisChangeMsg))
 	{
 		cout << "Failed to send an ending broadcast message" << endl;
-	}
-
-	// Also send ending message to the connected nodes that use different service port
-	{
-		scope_lock lock(_nodesLocker);
-
-		const u_short port = htons(_port);
-		for (auto& node : _nodes)
-		{
-			if (node->GetAddress().sin_port != port)
-			{
-				_socket.Send(sender, thisChangeMsg);
-			}
-		}
 	}
 }
 

@@ -33,6 +33,9 @@ private:
 	bool _shouldPing = false;
 	sockaddr_in _toPing;
 
+	bool _shouldListFiles = false;
+	std::string _listHostname;
+
 	std::queue<InputTransferData> _inputData;
 	std::queue<OutputTransferData> _outputData;
 	std::vector<FileTransfer*> _activeTransfers;
@@ -77,6 +80,9 @@ public:
 	// Adds new file to the network
 	void AddFile(const std::string& filename);
 
+	// Sends a message to the connected nodes or choosen host (if valid) to recive files list
+	void ListFiles(const std::string& hostName);
+
 public:
 
 	// Gets the collection of nodes in the network
@@ -85,6 +91,9 @@ public:
 	// Tries to find node by the given address, returns null if not found
 	Node* GetNode(const sockaddr_in& addr);
 
+	// Tries to find node by the given name, returns null if not found
+	Node* GetNode(const std::string& hostname);
+
 	// Tries to find local file by the given file hash, returns null if not found
 	File* GetFile(const Hash& hash);
 
@@ -92,6 +101,14 @@ public:
 	bool IsFileTransfer(const Hash& hash);
 
 private:
+
+	template<typename T>
+	bool Broadcast(const T& data)
+	{
+		return Broadcast((const char*)&data, sizeof(T));
+	}
+
+	bool Broadcast(const char* data, int length);
 
 	void run();
 	void runTransfer(FileTransfer* transfer);

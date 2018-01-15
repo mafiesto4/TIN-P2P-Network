@@ -118,8 +118,7 @@ int main()
 		}
 		else if (ParseCommandArg0(input, "list") || ParseCommandArg1(input, "list", arg0))
 		{
-			// TODO: implement listing files (use arg0 is not empty to get files from the choosen host)
-			cout << "Not implemented" << endl;
+			Service::Instance.ListFiles(arg0);
 		}
 		else if (ParseCommandArg0(input, "nodes"))
 		{
