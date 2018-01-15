@@ -33,7 +33,7 @@ typedef unsigned long ulong;
 // Computed file hash data storage
 struct Hash
 {
-	char Data[16];
+	byte Data[16];
 };
 
 // Compares two file hashes and returns true if both are equal

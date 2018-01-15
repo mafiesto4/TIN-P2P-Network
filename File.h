@@ -7,6 +7,9 @@ class File
 {
 public:
 
+	// Local file path
+	std::string Path;
+
 	// Unique file hash
 	Hash Hash;
 };
