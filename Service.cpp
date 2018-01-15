@@ -116,7 +116,7 @@ void Service::Start(ushort port, const char* name)
 	}
 
 	// Bind local address to the sending socket
-	if (_socket.Bind(port))
+	if (_socket.Bind(_localAddress, port))
 	{
 		cout << "Failed to bind address to the socket" << endl;
 		return;
@@ -206,6 +206,15 @@ void CalculateHash(std::vector<char>& data, Hash& hash)
 	md5.get(hash.Data);
 }
 
+bool CompareNodes(Node* a, Node* b)
+{
+	auto x = a->GetAddress();
+	auto y = b->GetAddress();
+	if (memcpy(&x.sin_addr, &y.sin_addr, sizeof(in_addr)) < 0)
+		return true;
+	return x.sin_port < y.sin_port;
+}
+
 void Service::AddFile(const std::string& filename)
 {
 	// Open file
@@ -219,6 +228,11 @@ void Service::AddFile(const std::string& filename)
 	// Read all data
 	const std::streamsize size = file.tellg();
 	file.seekg(0, std::ios::beg);
+	if(size <= 0)
+	{
+		cout << "Cannot add empty file" << endl;
+		return;
+	}
 	std::vector<char> buffer(size);
 	if (!file.read(buffer.data(), size))
 	{
@@ -370,6 +384,9 @@ void Service::run()
 							node = new Node(sender, msg->Name);
 							_nodes.push_back(node);
 
+							// Keep nodes sorted
+							std::sort(_nodes.begin(), _nodes.end(), CompareNodes);
+
 							// Send back message
 							if (_socket.Send(sender, thisChangeMsg))
 							{
@@ -412,8 +429,8 @@ void Service::run()
 						break;
 					}
 
-					// Validate if file has been already added to this node
-					if (GetFile(msg->Hash) == nullptr)
+					// Validate if file has been already added to this node (or is empty)
+					if (GetFile(msg->Hash) == nullptr || msg->Size <= 0)
 					{
 						// Push reciving data request
 						InputTransferData data;

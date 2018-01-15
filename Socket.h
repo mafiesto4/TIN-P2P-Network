@@ -53,6 +53,15 @@ public:
 		return bind(_descriptor, reinterpret_cast<sockaddr*>(&client), sizeof(client)) == -1;
 	}
 
+	bool Bind(const in_addr& addr, ushort port)
+	{
+		sockaddr_in client;
+		client.sin_family = AF_INET;
+		client.sin_port = htons(port);
+		client.sin_addr = addr;
+		return bind(_descriptor, reinterpret_cast<sockaddr*>(&client), sizeof(client)) == -1;
+	}
+
 	bool Bind(const std::string& address, ushort port)
 	{
 		sockaddr_in client;
