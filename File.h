@@ -18,4 +18,10 @@ public:
 
 	// File size (in bytes)
 	int Size;
+
+	// True if file should be stored in the local node, otherwise false if send it to the other node (not used remove files are removed)
+	bool IsLocal = true;
+
+	// True if remove file if not used
+	bool MarkedToRemove = false;
 };

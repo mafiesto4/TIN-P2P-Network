@@ -22,7 +22,7 @@ private:
 	std::vector<Node*> _nodes;
 	std::recursive_mutex _nodesLocker;
 
-	ushort _port;
+	ushort _port = 0;
 	in_addr _localAddress;
 	Socket _socket;
 	Socket _broadcastingSocket;

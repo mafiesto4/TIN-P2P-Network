@@ -366,6 +366,31 @@ void Service::run()
 
 		// TODO: handling in/out transfers if no active threads to use
 
+		// Remove not used remote files
+		{
+			scope_lock lock(_filesLocker);
+
+			std::vector<File*> toRemove;
+			for (auto& file : _files)
+			{
+				if (!file->IsLocal && !IsFileTransfer(file->Hash))
+				{
+					// File is not used in any transfer and it's signed to the other node so remove the local data
+					toRemove.push_back(file);
+				}
+			}
+
+			for (auto& file : toRemove)
+			{
+				_files.erase(std::find(_files.begin(), _files.end(), file));
+				if(!file->Path.empty())
+				{
+					std::experimental::filesystem::remove(file->Path);
+				}
+				delete file;
+			}
+		}
+
 		// Wait for a message (non blocking)
 		if (Socket::Select(_socket, &time_500ms, &isReady))
 		{
@@ -664,7 +689,9 @@ void Service::UpdateLocalFiles()
 	{
 		const int node = File2NodeHash(file->Hash, nodesCnt);
 		assert(node >= 0 && node < nodesCnt);
-		if (_nodes[node] != GetLocalNode())
+		const bool isLocal = _nodes[node] == GetLocalNode();
+		file->IsLocal = isLocal;
+		if (!isLocal)
 		{
 			// Notify node about file it should have
 			NetworkTransferRequestMsg msg;
