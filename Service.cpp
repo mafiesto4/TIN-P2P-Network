@@ -887,7 +887,7 @@ void Service::run()
 					const auto node = GetNode(sender);
 					if (node == nullptr)
 					{
-						cout << "File transfer request from unknown node" << endl;
+						cout << "File info from unknown node (" << inet_ntoa(sender.sin_addr) << ":" << ntohs(sender.sin_port) << ")" << endl;
 						break;
 					}
 
@@ -918,7 +918,7 @@ void Service::run()
 					const auto node = GetNode(sender);
 					if (node == nullptr)
 					{
-						cout << "File transfer request from unknown node" << endl;
+						cout << "File transfer request from unknown node (" << inet_ntoa(sender.sin_addr) << ":" << ntohs(sender.sin_port) << ")" << endl;
 						break;
 					}
 
@@ -944,7 +944,7 @@ void Service::run()
 					const auto node = GetNode(sender);
 					if (node == nullptr)
 					{
-						cout << "File transfer request from unknown node" << endl;
+						cout << "File transfer request from unknown node (" << inet_ntoa(sender.sin_addr) << ":" << ntohs(sender.sin_port) << ")" << endl;
 						break;
 					}
 
