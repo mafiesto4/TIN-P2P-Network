@@ -1,5 +1,8 @@
 #include "Node.h"
 #include "Service.h"
+#include <iostream>
+
+using namespace std;
 
 bool Node::IsLocal() const
 {

@@ -24,7 +24,7 @@ bool InputFileTransfer::Perform()
 		NetworkTransferInitMsg msg;
 		msg.Type = MSG_TYPE_TRANSFER_INIT;
 		msg.Port = Service::Instance.GetPort();
-		msg.Hash = _data.FileHash;
+		msg.FileHash = _data.FileHash;
 		msg.TcpPort = ntohs(tcpAddress.sin_port);
 
 		Socket udpSocket;
@@ -51,7 +51,7 @@ bool InputFileTransfer::Perform()
 		return true;
 	}
 	std::vector<char> data(_data.FileSize);
-	if(msgsock.ReceiveData(&data[0], data.size()))
+	if(msgsock.ReceiveData(&data[0], (int)data.size()))
 	{
 		cout << "Failed to get data" << endl;
 		return true;
@@ -121,7 +121,7 @@ bool OutputFileTransfer::Perform()
 	}
 
 	// Transfer data
-	if (tcpSocket.SendData(&buffer[0], buffer.size()))
+	if (tcpSocket.SendData(&buffer[0], (int)buffer.size()))
 	{
 		cout << "Failed to send data" << endl;
 		return true;

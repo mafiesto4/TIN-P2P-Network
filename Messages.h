@@ -60,7 +60,7 @@ struct NetworkFileInfoMsg : NetworkMsg
 	byte FilenameLength;
 	char Filename[MAX_MSG_NAME_LENGTH];
 	int Size;
-	Hash Hash;
+	Hash FileHash;
 };
 static_assert(sizeof(NetworkFileInfoMsg) <= MAX_NETWORK_MSG_SIZE, "Invalid message size");
 
@@ -69,7 +69,7 @@ struct NetworkTransferRequestMsg : NetworkMsg
 {
 	byte FilenameLength;
 	char Filename[MAX_MSG_NAME_LENGTH];
-	Hash Hash;
+	Hash FileHash;
 	int Size;
 };
 static_assert(sizeof(NetworkTransferRequestMsg) <= MAX_NETWORK_MSG_SIZE, "Invalid message size");
@@ -78,6 +78,6 @@ static_assert(sizeof(NetworkTransferRequestMsg) <= MAX_NETWORK_MSG_SIZE, "Invali
 struct NetworkTransferInitMsg : NetworkMsg
 {
 	ushort TcpPort;
-	Hash Hash;
+	Hash FileHash;
 };
 static_assert(sizeof(NetworkTransferInitMsg) <= MAX_NETWORK_MSG_SIZE, "Invalid message size");

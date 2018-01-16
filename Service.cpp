@@ -3,7 +3,6 @@
 #include "Messages.h"
 #include <fstream>
 #include "md5.h"
-#include <filesystem>
 #include <stdio.h>
 #include <time.h>
 
@@ -18,6 +17,209 @@ uint File2NodeHash(const Hash& hash, int nodesCount)
 	for (int i = 1; i < 16; i++)
 		v = (v * 379) ^ hash.Data[0];
 	return v % nodesCount;
+}
+
+void CreateDirectory(const char* path)
+{
+#if _WIN32
+	CreateDirectoryA(path, nullptr);
+#else
+	mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+#endif
+}
+
+bool DeleteDirectory(const std::string& path, bool deleteContents)
+{
+#if _WIN32
+	if (deleteContents)
+	{
+		std::string pattern = path + "/*";
+		WIN32_FIND_DATAA info;
+		HANDLE hp;
+		hp = FindFirstFileA(pattern.c_str(), &info);
+		if (INVALID_HANDLE_VALUE == hp)
+		{
+			// Check if no files at all
+			return GetLastError() != ERROR_FILE_NOT_FOUND;
+		}
+
+		do
+		{
+			// Check if it isn't a special case
+			if (((memcmp(info.cFileName, ".", 2) == 0) || (memcmp(info.cFileName, "..", 3) == 0)))
+				continue;
+
+			// Check if its a directory of a file
+			std::string tmpPath = path + "/" + info.cFileName;
+			if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+			{
+				// Delete subdirectory recursively
+				if (DeleteDirectory(tmpPath, true))
+				{
+					// Error
+					FindClose(hp);
+					return true;
+				}
+			}
+			else
+			{
+				if (!DeleteFileA(tmpPath.c_str()))
+				{
+					// Error
+					FindClose(hp);
+					return true;
+				}
+			}
+		} while (FindNextFileA(hp, &info) != 0);
+		FindClose(hp);
+
+		if (GetLastError() != ERROR_NO_MORE_FILES)
+			return true;
+	}
+
+	RemoveDirectoryA(path.c_str());
+
+	// Check if stil exists
+	int result = GetFileAttributesA(path.c_str());
+	return (result != 0xFFFFFFFF && (result & FILE_ATTRIBUTE_DIRECTORY));
+#else
+	// Src: https://stackoverflow.com/questions/2256945/removing-a-non-empty-directory-programmatically-in-c-or-c
+
+	DIR *d = opendir(path.c_str());
+	size_t path_len = path.size();
+	int r = -1;
+
+	if (d)
+	{
+		struct dirent *p;
+
+		r = 0;
+
+		while (!r && (p = readdir(d)))
+		{
+			int r2 = -1;
+			char *buf;
+			size_t len;
+
+			//Skip the names "." and ".." as we don't want to recurse on them
+			if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, ".."))
+			{
+				continue;
+			}
+
+			len = path_len + strlen(p->d_name) + 2;
+			buf = (char*)malloc(len);
+
+			if (buf)
+			{
+				struct stat statbuf;
+
+				snprintf(buf, len, "%s/%s", path.c_str(), p->d_name);
+
+				if (!stat(buf, &statbuf))
+				{
+					if (S_ISDIR(statbuf.st_mode))
+					{
+						r2 = DeleteDirectory(string(buf), true);
+					}
+					else
+					{
+						r2 = unlink(buf);
+					}
+				}
+
+				free(buf);
+			}
+
+			r = r2;
+		}
+
+		closedir(d);
+	}
+
+	if (!r)
+	{
+		r = rmdir(path.c_str());
+	}
+
+	return !r ? false : true;
+
+#endif
+}
+
+bool DeleteFile(const std::string& path)
+{
+#if _WIN32
+	return DeleteFileA(path.c_str()) == 0;
+#else
+	return unlink(path.c_str()) != 0;
+#endif
+}
+
+bool CopyFile(const char* dst, const char* src)
+{
+#if _WIN32
+	return CopyFileA(src, dst, FALSE) == 0;
+#else
+	// Src: https://stackoverflow.com/questions/2180079/how-can-i-copy-a-file-on-unix-using-c
+
+	int fd_to, fd_from;
+	char buf[4096];
+	ssize_t nread;
+	int saved_errno;
+
+	fd_from = open(src, O_RDONLY);
+	if (fd_from < 0)
+		return true;
+
+	fd_to = open(dst, O_WRONLY | O_CREAT | O_EXCL, 0666);
+	if (fd_to < 0)
+		goto out_error;
+
+	while (nread = read(fd_from, buf, sizeof buf), nread > 0)
+	{
+		char *out_ptr = buf;
+		ssize_t nwritten;
+
+		do {
+			nwritten = write(fd_to, out_ptr, nread);
+
+			if (nwritten >= 0)
+			{
+				nread -= nwritten;
+				out_ptr += nwritten;
+			}
+			else if (errno != EINTR)
+			{
+				goto out_error;
+			}
+		} while (nread > 0);
+	}
+
+	if (nread == 0)
+	{
+		if (close(fd_to) < 0)
+		{
+			fd_to = -1;
+			goto out_error;
+		}
+		close(fd_from);
+
+		// Success!
+		return false;
+	}
+
+out_error:
+	saved_errno = errno;
+
+	close(fd_from);
+	if (fd_to >= 0)
+		close(fd_to);
+
+	errno = saved_errno;
+	return true;
+
+#endif
 }
 
 bool ParseAddress(const std::string& address, sockaddr_in& addr)
@@ -73,7 +275,7 @@ bool GetLocalAddress(in_addr* result)
 {
 	char szBuffer[1024];
 
-	if (gethostname(szBuffer, sizeof(szBuffer)) == SOCKET_ERROR)
+	if (gethostname(szBuffer, sizeof(szBuffer)) == -1)
 		return true;
 
 	struct hostent* host = gethostbyname(szBuffer);
@@ -123,7 +325,7 @@ void Service::Start(ushort port, const char* name)
 	// Setup local files database
 	// TODO: better local database folder name or sth
 	_localFilesDatabasePath = nodeName;
-	std::experimental::filesystem::create_directory(_localFilesDatabasePath);
+	CreateDirectory(_localFilesDatabasePath.c_str());
 
 	// Open sockets
 	if (_socket.Open(SOCK_DGRAM, IPPROTO_UDP) || _broadcastingSocket.Open(SOCK_DGRAM, IPPROTO_UDP))
@@ -184,7 +386,7 @@ void Service::Stop()
 	for (auto& file : _files)
 		delete file;
 	_files.clear();
-	std::experimental::filesystem::remove_all(_localFilesDatabasePath);
+	DeleteDirectory(_localFilesDatabasePath, true);
 	_localFilesDatabasePath.clear();
 
 	// Cleanup
@@ -268,8 +470,8 @@ void Service::AddFile(const std::string& filename)
 	// Create new file (local)
 	auto f = new File();
 	f->Filename = filename;
-	f->Size = buffer.size();
-	CalculateHash(buffer, f->Hash);
+	f->Size = (int)buffer.size();
+	CalculateHash(buffer, f->FileHash);
 
 	// Place file in the local database
 	if(StoreLocalFileData(f, buffer))
@@ -378,7 +580,7 @@ File* Service::GetFile(const Hash& hash)
 
 	for (auto& file : _files)
 	{
-		if (file->Hash == hash)
+		if (file->FileHash == hash)
 			return file;
 	}
 
@@ -639,7 +841,7 @@ void Service::run()
 							memcpy(msg.Filename, file->Filename.c_str(), msg.FilenameLength + 1);
 							msg.Filename[msg.FilenameLength] = 0;
 							msg.Size = file->Size;
-							msg.Hash = file->Hash;
+							msg.FileHash = file->FileHash;
 							if (_socket.Send(sender, msg))
 							{
 								cout << "Failed to send file info message" << endl;
@@ -668,7 +870,7 @@ void Service::run()
 						memcpy(msg.Filename, file->Filename.c_str(), msg.FilenameLength + 1);
 						msg.Filename[msg.FilenameLength] = 0;
 						msg.Size = file->Size;
-						msg.Hash = file->Hash;
+						msg.FileHash = file->FileHash;
 						if (_socket.Send(sender, msg))
 						{
 							cout << "Failed to send file info message" << endl;
@@ -697,7 +899,7 @@ void Service::run()
 						data.TargetAddress = sender;
 						data.FileSize = msg->Size;
 						data.FileName = msg->Filename;
-						data.FileHash = msg->Hash;
+						data.FileHash = msg->FileHash;
 						GetFile(data);
 					}
 					else
@@ -721,14 +923,14 @@ void Service::run()
 					}
 
 					// Validate if file has been already added to this node (or is empty)
-					if (GetFile(msg->Hash) == nullptr || msg->Size <= 0)
+					if (GetFile(msg->FileHash) == nullptr || msg->Size <= 0)
 					{
 						// Push reciving data request
 						InputTransferData data;
 						data.TargetAddress = sender;
 						data.FileSize = msg->Size;
 						data.FileName = msg->Filename;
-						data.FileHash = msg->Hash;
+						data.FileHash = msg->FileHash;
 						GetFile(data);
 					}
 
@@ -750,7 +952,7 @@ void Service::run()
 					OutputTransferData data;
 					data.TargetAddress = sender;
 					data.TcpPort = msg->TcpPort;
-					data.FileHash = msg->Hash;
+					data.FileHash = msg->FileHash;
 					SendFile(data);
 
 					break;
@@ -932,7 +1134,7 @@ void Service::HandleFiles()
 	std::vector<File*> toRemove;
 	for (auto& file : _files)
 	{
-		if (file->TTL <= 0.0f && (!file->IsLocal || file->MarkedToRemove) && !IsFileTransfer(file->Hash))
+		if (file->TTL <= 0.0f && (!file->IsLocal || file->MarkedToRemove) && !IsFileTransfer(file->FileHash))
 		{
 			// File is not used in any transfer and it's signed to the other node so remove the local data
 			toRemove.push_back(file);
@@ -943,7 +1145,7 @@ void Service::HandleFiles()
 		_files.erase(std::find(_files.begin(), _files.end(), file));
 		if (!file->Path.empty())
 		{
-			std::experimental::filesystem::remove(file->Path);
+			DeleteFile(file->Path);
 		}
 		delete file;
 	}
@@ -966,7 +1168,7 @@ void Service::HandleFilesLocality()
 
 	for (auto& file : _files)
 	{
-		const uint node = File2NodeHash(file->Hash, nodesCnt);
+		const uint node = File2NodeHash(file->FileHash, nodesCnt);
 		assert(node >= 0 && node < nodesCnt);
 		const bool isLocal = _nodes[node] == GetLocalNode();
 		file->IsLocal = isLocal;
@@ -982,7 +1184,7 @@ void Service::HandleFilesLocality()
 			msg.FilenameLength = file->Filename.size();
 			memcpy(msg.Filename, file->Filename.c_str(), msg.FilenameLength + 1);
 			msg.Filename[msg.FilenameLength] = 0;
-			msg.Hash = file->Hash;
+			msg.FileHash = file->FileHash;
 			msg.Size = file->Size;
 			if (_socket.Send(_nodes[node]->GetAddress(), msg))
 			{
@@ -1006,7 +1208,7 @@ void Service::HandleDownloadFile()
 		if (file && !file->Path.empty())
 		{
 			cout << "Getting local file" << endl;
-			std::experimental::filesystem::copy_file(file->Path, _getFileLocalPath, experimental::filesystem::copy_options::update_existing);
+			CopyFile(_getFileLocalPath.c_str(), file->Path.c_str());
 			return;
 		}
 	}
@@ -1046,7 +1248,7 @@ bool Service::AddLocalFile(const std::string& filename, const Hash& hash, std::v
 	auto f = new File();
 	f->Filename = filename;
 	f->Size = data.size();
-	f->Hash = hash;
+	f->FileHash = hash;
 
 	// Place file in the local database
 	if (StoreLocalFileData(f, data))

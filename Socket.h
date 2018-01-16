@@ -29,7 +29,7 @@ public:
 	{
 		if (!IsClosed())
 			return true;
-		_descriptor = socket(AF_INET, type, protocol);
+		_descriptor = (int)socket(AF_INET, type, protocol);
 		return _descriptor == -1;
 	}
 
@@ -41,7 +41,7 @@ public:
 	bool GetAddress(sockaddr_in* result) const
 	{
 		int size = sizeof(sockaddr_in);
-		return getsockname(_descriptor, (struct sockaddr*)result, &size) == -1;
+		return getsockname(_descriptor, (struct sockaddr*)result, (socklen_t*)&size) == -1;
 	}
 
 	bool Bind(ushort port)
@@ -50,7 +50,7 @@ public:
 		client.sin_family = AF_INET;
 		client.sin_port = htons(port);
 		client.sin_addr.s_addr = INADDR_ANY;
-		return bind(_descriptor, reinterpret_cast<sockaddr*>(&client), sizeof(client)) == -1;
+		return (int)bind(_descriptor, reinterpret_cast<sockaddr*>(&client), sizeof(client)) == -1;
 	}
 
 	bool Bind(const in_addr& addr, ushort port)
@@ -59,7 +59,7 @@ public:
 		client.sin_family = AF_INET;
 		client.sin_port = htons(port);
 		client.sin_addr = addr;
-		return bind(_descriptor, reinterpret_cast<sockaddr*>(&client), sizeof(client)) == -1;
+		return (int)bind(_descriptor, reinterpret_cast<sockaddr*>(&client), sizeof(client)) == -1;
 	}
 
 	bool Bind(const std::string& address, ushort port)
@@ -106,7 +106,7 @@ public:
 
 	bool Accept(Socket& msgSock)
 	{
-		const int v = accept(_descriptor, (struct sockaddr*)0, (int*)0);
+		const int v = (int)accept(_descriptor, (struct sockaddr*)0, (socklen_t*)0);
 		if (v == -1)
 			return true;
 
@@ -229,7 +229,7 @@ public:
 	int Receive(char* data, int length, sockaddr_in* sender)
 	{
 		int senderSize = sizeof(sockaddr_in);
-		return recvfrom(_descriptor, data, length, 0, (struct sockaddr*)sender, &senderSize);
+		return recvfrom(_descriptor, data, length, 0, (struct sockaddr*)sender, (socklen_t*)&senderSize);
 	}
 	
 	int Receive(char* data, int length)

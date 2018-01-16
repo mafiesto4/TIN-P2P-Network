@@ -7,14 +7,22 @@
 #include <Ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 
+#undef CreateDirectory
+#undef CopyFile
+#undef DeleteFile
+
 #else
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <limits.h>
+#include <dirent.h>
+#include <fcntl.h>
 
 #endif
 
@@ -22,6 +30,7 @@
 #include <assert.h>
 #include <thread>
 #include <atomic>
+#include <cstring>
 #include <vector>
 #include <mutex>
 

@@ -14,7 +14,7 @@ public:
 	std::string Filename;
 
 	// Unique file hash
-	Hash Hash;
+	Hash FileHash;
 
 	// File size (in bytes)
 	int Size;
