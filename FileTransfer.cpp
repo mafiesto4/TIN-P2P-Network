@@ -9,6 +9,10 @@ using namespace std;
 
 bool InputFileTransfer::Perform()
 {
+#if DETAILED_LOG
+	cout << "Start uploading file to " << inet_ntoa(_data.TargetAddress.sin_addr) << endl;
+#endif
+
 	// Create TCP socket
 	Socket tcpSocket;
 	if (tcpSocket.Open(SOCK_STREAM, IPPROTO_TCP) || tcpSocket.Bind(0))
@@ -43,13 +47,13 @@ bool InputFileTransfer::Perform()
 
 	// Wait for the connection
 	tcpSocket.Listen();
-
-	// Transfer data
 	Socket msgsock;
 	if (tcpSocket.Accept(msgsock))
 	{
 		return true;
 	}
+
+	// Transfer data
 	std::vector<char> data(_data.FileSize);
 	if(msgsock.ReceiveData(&data[0], (int)data.size()))
 	{
@@ -71,6 +75,10 @@ bool InputFileTransfer::Perform()
 
 bool OutputFileTransfer::Perform()
 {
+#if DETAILED_LOG
+	cout << "Start downloading file from " << inet_ntoa(_data.TargetAddress.sin_addr) << endl;
+#endif
+
 	// Create TCP socket
 	Socket tcpSocket;
 	if (tcpSocket.Open(SOCK_STREAM, IPPROTO_TCP))
@@ -78,6 +86,8 @@ bool OutputFileTransfer::Perform()
 		cout << "Failed to open a socket" << endl;
 		return true;
 	}
+
+	std::this_thread::sleep_for(2ms);
 
 	// Connect
 	sockaddr_in targetTcpAddr = _data.TargetAddress;

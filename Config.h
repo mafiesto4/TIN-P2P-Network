@@ -67,3 +67,6 @@ typedef std::lock_guard<std::recursive_mutex> scope_lock;
 #define MAX_ACTIVE_TRANSFERS_COUNT 12
 
 #define DEFAULT_MSG_PORT 2600
+
+// Enable/disable detailed service logging feature
+#define DETAILED_LOG 1

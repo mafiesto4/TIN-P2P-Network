@@ -15,7 +15,7 @@ uint File2NodeHash(const Hash& hash, int nodesCount)
 {
 	uint v = hash.Data[0];
 	for (int i = 1; i < 16; i++)
-		v = (v * 379) ^ hash.Data[0];
+		v = (v * 379) ^ hash.Data[i];
 	return v % nodesCount;
 }
 
@@ -273,7 +273,7 @@ bool ParseAddress(const std::string& address, sockaddr_in& addr)
 
 bool GetLocalAddress(in_addr* result)
 {
-	char szBuffer[1024];
+	char szBuffer[256];
 
 	if (gethostname(szBuffer, sizeof(szBuffer)) == -1)
 		return true;
@@ -282,7 +282,9 @@ bool GetLocalAddress(in_addr* result)
 	if (host == NULL)
 		return true;
 
-	*result = *((struct in_addr*)(host->h_addr));
+	int index = memcmp(szBuffer, "FlaxDev", 7) == 0 ? 1 : 0;
+	
+	*result = ((struct in_addr*)(host->h_addr))[index];
 
 	return false;
 }
@@ -432,13 +434,19 @@ void CalculateHash(std::vector<char>& data, Hash& hash)
 	md5.get(hash.Data);
 }
 
-bool CompareNodes(Node* a, Node* b)
+bool CompareNodes(const Node* a, const Node* b)
 {
-	auto x = a->GetAddress();
-	auto y = b->GetAddress();
-	if (memcpy(&x.sin_addr, &y.sin_addr, sizeof(in_addr)) < 0)
+	auto x = a->GetAddressName();
+	char bbbb[100];
+#if _WIN32
+	strcpy_s(bbbb, 100, x);
+#else
+	strcpy(bbbb, x);
+#endif
+	auto y = b->GetAddressName();
+	if (strcmp(bbbb, y) < 0)
 		return true;
-	return x.sin_port < y.sin_port;
+	return a->GetAddress().sin_port < b->GetAddress().sin_port;
 }
 
 void Service::AddFile(const std::string& filename)
@@ -630,6 +638,9 @@ bool Service::Broadcast(const char* data, int length)
 {
 	if (_broadcastingSocket.Broadcast(_port, data, length))
 	{
+#if DETAILED_LOG
+		cout << "Failed to broadcast message" << endl;
+#endif
 		return true;
 	}
 
@@ -643,7 +654,12 @@ bool Service::Broadcast(const char* data, int length)
 			if (node->GetAddress().sin_port != port)
 			{
 				if (_socket.Send(node->GetAddress(), data, length))
+				{
+#if DETAILED_LOG
+					cout << "Failed to broadcast message (specific node)" << endl;
+#endif
 					return true;
+				}
 			}
 		}
 	}
@@ -744,6 +760,10 @@ void Service::run()
 				// Skip messages from itself
 				if (memcmp(&_localAddress, &sender.sin_addr, sizeof(sender.sin_addr)) == 0 && msgBase->Port == _port)
 					continue;
+
+#if DETAILED_LOG
+				cout << "Msg from " << inet_ntoa(sender.sin_addr) << ":" << ntohs(sender.sin_port) << ": type: " << (char)('0' + msgBase->Type) << endl;
+#endif
 
 				// Handle message
 				switch (msgBase->Type)
@@ -1166,6 +1186,10 @@ void Service::HandleFilesLocality()
 	scope_lock lock2(_nodesLocker);
 	const int nodesCnt = _nodes.size();
 
+#if DETAILED_LOG
+	cout << "Local files distribution update" << endl;
+#endif
+
 	for (auto& file : _files)
 	{
 		const uint node = File2NodeHash(file->FileHash, nodesCnt);
@@ -1174,8 +1198,12 @@ void Service::HandleFilesLocality()
 		file->IsLocal = isLocal;
 		if (!isLocal)
 		{
+#if DETAILED_LOG
+			cout << "Local file " << file->Filename << " should be send to node " << _nodes[node] << endl;
+#endif
+
 			// Give some time until removing this file
-			file->TTL = 2.0f;
+			file->TTL = 3.0f;
 
 			// Notify node about file it should have
 			NetworkTransferRequestMsg msg;
