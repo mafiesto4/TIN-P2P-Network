@@ -121,23 +121,7 @@ public:
 		return Broadcast(port, (const char*)&data, sizeof(T));
 	}
 
-	bool Broadcast(ushort port, const char* data, int length)
-	{
-		int val = 1;
-		if (setsockopt(_descriptor, SOL_SOCKET, SO_BROADCAST, (const char*)&val, sizeof(val)) == -1)
-			return true;
-		if (setsockopt(_descriptor, SOL_SOCKET, SO_REUSEADDR, (const char*)&val, sizeof(val)) == -1)
-			return true;
-
-		sockaddr_in addr;
-		addr.sin_family = AF_INET;
-		addr.sin_addr.s_addr = inet_addr("192.168.0.255");
-		//addr.sin_addr.s_addr = INADDR_BROADCAST;
-		addr.sin_port = htons(port);
-
-		const int numBytes = sendto(_descriptor, data, length, 0, (struct sockaddr*)&addr, sizeof(addr));
-		return numBytes != length;
-	}
+	bool Broadcast(ushort port, const char* data, int length);
 
 	template<typename T>
 	bool Send(const sockaddr_in& addr, const T& data)

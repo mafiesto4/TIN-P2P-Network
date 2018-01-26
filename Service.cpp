@@ -10,6 +10,28 @@ using namespace std;
 
 Service Service::Instance;
 
+bool Socket::Broadcast(ushort port, const char* data, int length)
+{
+	int val = 1;
+	if (setsockopt(_descriptor, SOL_SOCKET, SO_BROADCAST, (const char*)&val, sizeof(val)) == -1)
+		return true;
+	if (setsockopt(_descriptor, SOL_SOCKET, SO_REUSEADDR, (const char*)&val, sizeof(val)) == -1)
+		return true;
+
+	auto localAdd = Service::Instance.GetLocalNode()->GetAddress();
+	localAdd.sin_addr.S_un.S_un_b.s_b4 = 255;
+
+	sockaddr_in addr;
+	addr.sin_family = AF_INET;
+	addr.sin_addr = localAdd.sin_addr;
+	//addr.sin_addr.s_addr = inet_addr("192.168.0.255");
+	//addr.sin_addr.s_addr = INADDR_BROADCAST;
+	addr.sin_port = htons(port);
+
+	const int numBytes = sendto(_descriptor, data, length, 0, (struct sockaddr*)&addr, sizeof(addr));
+	return numBytes != length;
+}
+
 // Computes hashed value for the target node index that should store the file of the given hash (kind of hash from hash)
 uint File2NodeHash(const Hash& hash, int nodesCount)
 {
