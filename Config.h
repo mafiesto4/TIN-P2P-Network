@@ -69,4 +69,4 @@ typedef std::lock_guard<std::recursive_mutex> scope_lock;
 #define DEFAULT_MSG_PORT 2600
 
 // Enable/disable detailed service logging feature
-#define DETAILED_LOG 1
+#define DETAILED_LOG 0
